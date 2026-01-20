@@ -59,6 +59,7 @@ const AuroraAudio = ({
   const [showControls, setShowControls] = useState(true);
   const [isMouseOver, setIsMouseOver] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const hideControlsTimerRef = useRef(null);
   
   // State for lyrics
@@ -103,7 +104,7 @@ const AuroraAudio = ({
     let animationFrame;
     
     const rotateRecord = () => {
-      if (isPlaying) {
+      if (isPlaying && !isLoading) {
         setRotation(prev => {
           const newRotation = prev + 0.2;
           // Keep the rotation value within a reasonable range to avoid performance issues
@@ -119,7 +120,7 @@ const AuroraAudio = ({
     return () => {
       cancelAnimationFrame(animationFrame);
     };
-  }, [isPlaying]);  
+  }, [isPlaying, isLoading]);  
   
   // Detect container orientation
   useEffect(() => {
@@ -288,7 +289,22 @@ const AuroraAudio = ({
     const audio = audioRef.current;
     const rect = e.currentTarget.getBoundingClientRect();
     const pos = (e.clientX - rect.left) / rect.width;
-    audio.currentTime = pos * duration;
+    
+    // Calculate new time position
+    const newTime = pos * duration;
+    
+    // Set loading state
+    setIsLoading(true);
+    
+    // Update audio and React state immediately
+    audio.currentTime = newTime;
+    setCurrentTime(newTime);
+    setProgress(pos * 100);
+    
+    // Clear loading state after a brief moment
+    setTimeout(() => {
+      setIsLoading(false);
+    }, 300);
   };
   
   // Handle progress bar drag
@@ -296,9 +312,23 @@ const AuroraAudio = ({
     const audio = audioRef.current;
     const rect = progressBarRef.current.getBoundingClientRect();
     const pos = Math.min(Math.max((e.clientX - rect.left) / rect.width, 0), 1); // Clamp between 0 and 1
-    audio.currentTime = pos * duration;
+    
+    // Calculate new time position
+    const newTime = pos * duration;
+    
+    // Set loading state
+    setIsLoading(true);
+    
+    // Update audio and React state immediately
+    audio.currentTime = newTime;
+    setCurrentTime(newTime);
     // Update progress immediately without animation
     setProgress(pos * 100);
+    
+    // Clear loading state after a brief moment
+    setTimeout(() => {
+      setIsLoading(false);
+    }, 300);
   };
   
   // Handle mouse down on progress bar to start drag
@@ -459,6 +489,13 @@ const AuroraAudio = ({
   return (
     <div className={playerClass} ref={containerRef} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave} style={{ background: backgroundColor }}>
       <audio ref={audioRef} src={currentTrack.url} />
+      
+      {/* Loading indicator */}
+      {isLoading && (
+        <div className="aurora-audio__loading-indicator">
+          <div className="aurora-audio__spinner"></div>
+        </div>
+      )}
       
       {/* Semi-transparent poster overlay in normal mode */}
       {mode === 'normal' && currentTrack.poster && (
