@@ -58,6 +58,7 @@ const AuroraAudio = ({
   const [showVolumeSlider, setShowVolumeSlider] = useState(false);
   const [showControls, setShowControls] = useState(true);
   const [isMouseOver, setIsMouseOver] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   const hideControlsTimerRef = useRef(null);
   
   // State for lyrics
@@ -68,6 +69,7 @@ const AuroraAudio = ({
   const containerRef = useRef(null);
   const activeLyricRef = useRef(null);
   const lyricsContainerRef = useRef(null);
+  const progressBarRef = useRef(null);
 
   // Effect for audio events and time updates
   useEffect(() => {
@@ -281,11 +283,45 @@ const AuroraAudio = ({
     }
   };
 
+  // Handle progress bar click
   const handleProgressClick = (e) => {
     const audio = audioRef.current;
     const rect = e.currentTarget.getBoundingClientRect();
     const pos = (e.clientX - rect.left) / rect.width;
     audio.currentTime = pos * duration;
+  };
+  
+  // Handle progress bar drag
+  const handleProgressDrag = (e) => {
+    const audio = audioRef.current;
+    const rect = progressBarRef.current.getBoundingClientRect();
+    const pos = Math.min(Math.max((e.clientX - rect.left) / rect.width, 0), 1); // Clamp between 0 and 1
+    audio.currentTime = pos * duration;
+    // Update progress immediately without animation
+    setProgress(pos * 100);
+  };
+  
+  // Handle mouse down on progress bar to start drag
+  const handleProgressMouseDown = (e) => {
+    // Prevent default behavior and start listening for mousemove
+    e.preventDefault();
+    setIsDragging(true);
+    
+    const handleMouseMove = (e) => {
+      handleProgressDrag(e);
+    };
+    
+    const handleMouseUp = () => {
+      setIsDragging(false);
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+    
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    
+    // Also trigger the initial drag position
+    handleProgressDrag(e);
   };
 
   const handleVolumeChange = (e) => {
@@ -358,6 +394,39 @@ const AuroraAudio = ({
   }, [position, onPositionChange]);
 
   // Determine classes based on props
+  // Function to check if a string is a valid CSS color format
+  const isValidColor = (color) => {
+    // Check for hex colors (#FFF, #FFFFFF)
+    if (/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/.test(color)) return true;
+    // Check for rgb/rgba colors
+    if (/^rgba?\(\s*\d+\s*,\s*\d+\s*,\s*\d+(?:\s*,\s*[01]?\.?\d+)?\s*\)$/.test(color)) return true;
+    // Check for hsl/hsla colors
+    if (/^hsla?\(\s*\d+\s*,\s*\d+%\s*,\s*\d+%(?:\s*,\s*[01]?\.?\d+)?\s*\)$/.test(color)) return true;
+    // Check for linear gradients
+    if (/^linear-gradient\(/i.test(color)) return true;
+    // Check for radial gradients
+    if (/^radial-gradient\(/i.test(color)) return true;
+    // Check for named colors (limited list of common ones)
+    const namedColors = ['black', 'white', 'red', 'green', 'blue', 'yellow', 'orange', 'purple', 'pink', 'brown', 'gray', 'grey', 'cyan', 'magenta', 'lime', 'navy', 'maroon', 'olive', 'teal', 'silver', 'transparent'];
+    return namedColors.includes(color.toLowerCase());
+  };
+    
+  // Extract background color from effects based on mode
+  // In normal mode, only accept CSS color values and gradients, not enum values
+  // In other modes, enum values like 'Aurora', 'Gradient', 'Solid' are acceptable
+  let backgroundColor = '#000000'; // default to black
+  if (mode === 'normal') {
+    // In normal mode, only use as background color if it's a valid CSS color or gradient
+    if (typeof effects.background === 'string' && isValidColor(effects.background)) {
+      backgroundColor = effects.background;
+    }
+  } else {
+    // In other modes, if it's not a valid CSS color, we still assign it (for enum values like 'Aurora')
+    if (typeof effects.background === 'string') {
+      backgroundColor = effects.background;
+    }
+  }
+  
   const playerClass = `aurora-audio aurora-audio--${position} aurora-audio--${mode} aurora-audio--bg-${effects.background} aurora-audio--cover-${effects.cover} aurora-audio--lyrics-${effects.lyrics} aurora-audio--handle-${effects.handle}`;
 
   // Determine layout based on presence of lyrics and container dimensions
@@ -388,11 +457,31 @@ const AuroraAudio = ({
   };
   
   return (
-    <div className={playerClass} ref={containerRef} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
+    <div className={playerClass} ref={containerRef} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave} style={{ background: backgroundColor }}>
       <audio ref={audioRef} src={currentTrack.url} />
       
+      {/* Semi-transparent poster overlay in normal mode */}
+      {mode === 'normal' && currentTrack.poster && (
+        <div 
+          className="aurora-audio__poster-overlay"
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+            backgroundImage: `url(${currentTrack.poster})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            opacity: 0.08, // 8% transparency
+            zIndex: 1,
+            pointerEvents: 'none' // Allow interactions to pass through
+          }}
+        />
+      )}
+      
       {mode === 'normal' ? (
-        <div className="aurora-audio__container">
+        <div className="aurora-audio__container" style={{ zIndex: 2, position: 'relative' }}>
           <div className={mediaLayoutClass}>
             {/* Record with album cover */}
             <div className="aurora-audio__record-container">
@@ -509,8 +598,10 @@ const AuroraAudio = ({
         <div className={`aurora-audio__controls-overlay ${showControls ? 'visible' : 'hidden'}`}>
           <div className="aurora-audio__progress-track">
             <div 
-              className="aurora-audio__progress-bar" 
+              className={`aurora-audio__progress-bar ${isDragging ? 'dragging' : ''}`}
+              ref={progressBarRef}
               onClick={handleProgressClick}
+              onMouseDown={handleProgressMouseDown}
             >
               <div 
                 className="aurora-audio__progress-loaded" 
