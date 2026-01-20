@@ -60,6 +60,7 @@ const AuroraAudio = ({
   const [isMouseOver, setIsMouseOver] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [loadingPosition, setLoadingPosition] = useState(0);
   const hideControlsTimerRef = useRef(null);
   
   // State for lyrics
@@ -218,6 +219,36 @@ const AuroraAudio = ({
     setLyrics(parsedLyrics);
   };
   
+  // Effect to handle track changes
+  useEffect(() => {
+    // Set loading state when track changes
+    setIsLoading(true);
+    // Set loading position to beginning
+    setLoadingPosition(0);
+    
+    // Reset progress when track changes
+    setProgress(0);
+    setCurrentTime(0);
+    
+    // Set the new track URL to the audio element
+    if (audioRef.current) {
+      audioRef.current.src = currentTrack.url;
+      audioRef.current.currentTime = 0; // Reset time immediately
+      
+      // Wait for the new track to load and clear loading state
+      const handleCanPlay = () => {
+        setIsLoading(false);
+      };
+      
+      audioRef.current.addEventListener('canplay', handleCanPlay);
+      
+      // Clean up event listener
+      return () => {
+        audioRef.current?.removeEventListener('canplay', handleCanPlay);
+      };
+    }
+  }, [currentTrackIndex, currentTrack.url]); // Removed isPlaying from dependencies to prevent reset on play/pause
+  
   // Update current lyric based on playback time
   useEffect(() => {
     if (lyrics.length > 0) {
@@ -293,8 +324,9 @@ const AuroraAudio = ({
     // Calculate new time position
     const newTime = pos * duration;
     
-    // Set loading state
+    // Set loading state and position
     setIsLoading(true);
+    setLoadingPosition(pos * 100);
     
     // Update audio and React state immediately
     audio.currentTime = newTime;
@@ -316,8 +348,9 @@ const AuroraAudio = ({
     // Calculate new time position
     const newTime = pos * duration;
     
-    // Set loading state
+    // Set loading state and position
     setIsLoading(true);
+    setLoadingPosition(pos * 100);
     
     // Update audio and React state immediately
     audio.currentTime = newTime;
@@ -457,7 +490,7 @@ const AuroraAudio = ({
     }
   }
   
-  const playerClass = `aurora-audio aurora-audio--${position} aurora-audio--${mode} aurora-audio--bg-${effects.background} aurora-audio--cover-${effects.cover} aurora-audio--lyrics-${effects.lyrics} aurora-audio--handle-${effects.handle}`;
+  const playerClass = `aurora-audio aurora-audio--${position} aurora-audio--${mode} aurora-audio--bg-${effects.background} aurora-audio--cover-${effects.cover} aurora-audio--lyrics-${effects.lyrics} aurora-audio--handle-${effects.handle}${isLoading ? ' aurora-audio--loading' : ''}`;
 
   // Determine layout based on presence of lyrics and container dimensions
   const hasLyrics = !!currentTrack.lyrics_url;
@@ -490,12 +523,6 @@ const AuroraAudio = ({
     <div className={playerClass} ref={containerRef} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave} style={{ background: backgroundColor }}>
       <audio ref={audioRef} src={currentTrack.url} />
       
-      {/* Loading indicator */}
-      {isLoading && (
-        <div className="aurora-audio__loading-indicator">
-          <div className="aurora-audio__spinner"></div>
-        </div>
-      )}
       
       {/* Semi-transparent poster overlay in normal mode */}
       {mode === 'normal' && currentTrack.poster && (
@@ -591,14 +618,22 @@ const AuroraAudio = ({
       {mode !== 'normal' && (
         <div className="aurora-audio__progress">
           <span className="aurora-audio__time">{formatTime(currentTime)}</span>
-          <div 
-            className="aurora-audio__progress-bar" 
-            onClick={handleProgressClick}
-          >
+          <div className="aurora-audio__progress-relative-container">
+            {/* Loading indicator above progress bar at specific position */}
+            {isLoading && (
+              <div className="aurora-audio__loading-indicator--above-progress" style={{left: `${loadingPosition}%`, transform: 'translateX(-50%)'}}>
+                <div className="aurora-audio__spinner"></div>
+              </div>
+            )}
             <div 
-              className="aurora-audio__progress-loaded" 
-              style={{ width: `${progress}%` }}
-            ></div>
+              className="aurora-audio__progress-bar" 
+              onClick={handleProgressClick}
+            >
+              <div 
+                className="aurora-audio__progress-loaded" 
+                style={{ width: `${progress}%` }}
+              ></div>
+            </div>
           </div>
           <span className="aurora-audio__time">{formatTime(duration)}</span>
         </div>
@@ -609,6 +644,7 @@ const AuroraAudio = ({
           <button 
             className={`aurora-audio__control-btn ${isPlaying ? 'playing' : ''}`}
             onClick={togglePlayPause}
+            disabled={!duration || isLoading}
           >
             {isPlaying ? '⏸️' : '▶️'}
           </button>
@@ -634,16 +670,24 @@ const AuroraAudio = ({
       {mode === 'normal' && (
         <div className={`aurora-audio__controls-overlay ${showControls ? 'visible' : 'hidden'}`}>
           <div className="aurora-audio__progress-track">
-            <div 
-              className={`aurora-audio__progress-bar ${isDragging ? 'dragging' : ''}`}
-              ref={progressBarRef}
-              onClick={handleProgressClick}
-              onMouseDown={handleProgressMouseDown}
-            >
+            <div className="aurora-audio__progress-relative-container">
+              {/* Loading indicator above progress bar at specific position */}
+              {isLoading && (
+                <div className="aurora-audio__loading-indicator--above-progress" style={{left: `${loadingPosition}%`, transform: 'translateX(-50%)'}}>
+                    <div className="aurora-audio__spinner"></div>
+                  </div>
+              )}
               <div 
-                className="aurora-audio__progress-loaded" 
-                style={{ width: `${progress}%` }}
-              ></div>
+                className={`aurora-audio__progress-bar ${isDragging ? 'dragging' : ''}`}
+                ref={progressBarRef}
+                onClick={handleProgressClick}
+                onMouseDown={handleProgressMouseDown}
+              >
+                <div 
+                  className="aurora-audio__progress-loaded" 
+                  style={{ width: `${progress}%` }}
+                ></div>
+              </div>
             </div>
           </div>
           
@@ -677,6 +721,7 @@ const AuroraAudio = ({
               <button 
                 className="aurora-audio__control-button"
                 onClick={togglePlayPause}
+                disabled={!duration || isLoading}
               >
                 <img src={isPlaying ? pauseIcon : playIcon} alt={isPlaying ? "Pause" : "Play"} width="16" height="16" />
               </button>
@@ -695,6 +740,24 @@ const AuroraAudio = ({
             {/* Right: Volume Control */}
             <div className="aurora-audio__volume-control-wrapper">
               <div className="aurora-audio__volume-control">
+                <span 
+                  className="aurora-audio__volume-control-percent"
+                  onMouseEnter={() => setShowVolumeSlider(true)}
+                  onMouseLeave={() => setShowVolumeSlider(false)}
+                >
+                  {Math.round(volume * 100)}%
+                </span>
+                <div className={`aurora-audio__volume-control-slider-container-inline ${showVolumeSlider ? 'visible' : ''}`}>
+                  <div 
+                    className="aurora-audio__volume-control-slider-container-slider"
+                    onClick={handleVolumeSliderClick}
+                  >
+                    <div 
+                      className="aurora-audio__volume-control-slider-container-slider-thumb"
+                      style={{ left: `${(isMuted ? 0 : volume) * 100}%` }}
+                    ></div>
+                  </div>
+                </div>
                 <div 
                   className="aurora-audio__volume-control-icon"
                   onClick={toggleMute}
@@ -712,32 +775,6 @@ const AuroraAudio = ({
                     width="16" 
                     height="16" 
                   />
-                </div>
-                <span 
-                  className="aurora-audio__volume-control-percent"
-                  onMouseEnter={() => setShowVolumeSlider(true)}
-                  onMouseLeave={() => setShowVolumeSlider(false)}
-                >
-                  {Math.round(volume * 100)}%
-                </span>
-              </div>
-              
-              {/* Volume Slider Container */}
-              <div className={`aurora-audio__volume-control-slider-container ${showVolumeSlider ? 'visible' : ''}`}>
-                <span 
-                  className="aurora-audio__volume-control-percent"
-                  style={{ marginRight: '5px' }}
-                >
-                  {Math.round(volume * 100)}%
-                </span>
-                <div 
-                  className="aurora-audio__volume-control-slider-container-slider"
-                  onClick={handleVolumeSliderClick}
-                >
-                  <div 
-                    className="aurora-audio__volume-control-slider-container-slider-thumb"
-                    style={{ left: `${(isMuted ? 0 : volume) * 100}%` }}
-                  ></div>
                 </div>
               </div>
             </div>
