@@ -102,7 +102,12 @@ const AuroraAudio = ({
     
     const rotateRecord = () => {
       if (isPlaying) {
-        setRotation(prev => (prev + 0.2) % 360);
+        setRotation(prev => {
+          const newRotation = prev + 0.2;
+          // Keep the rotation value within a reasonable range to avoid performance issues
+          // while maintaining continuous rotation visually
+          return newRotation > 3600 ? newRotation - 3600 : newRotation;
+        });
       }
       animationFrame = requestAnimationFrame(rotateRecord);
     };
