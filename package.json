@@ -6,11 +6,11 @@
   "main": "dist/index.js",
   "scripts": {
     "start": "react-scripts start",
-    "build": "npm run build:component",
+    "build": "npm run build:app",
     "build:component": "rimraf dist && tsc -p tsconfig.build.json && babel src/lib --out-dir dist --extensions \".ts,.tsx\" --copy-files && npm run build:css",
     "build:css": "sass src/lib/:dist/ --no-source-map --style=compressed",
     "prebuild": "rimraf build",
-    "build": "react-scripts build",
+    "build:app": "react-scripts build",
     "postbuild": "npm run copy-dist-to-build",
     "copy-dist-to-build": "cp -r dist/* build/dist/ 2>/dev/null || xcopy /E /I /Q dist build\\dist 2>nul || echo Copy completed",
     "build:lib": "npm run build:component",
@@ -36,6 +36,7 @@
   "devDependencies": {
     "@babel/cli": "^7.22.0",
     "@babel/core": "^7.22.0",
+    "ajv": "^8.12.0",
     "@types/node": "^20.0.0",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
