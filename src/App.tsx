@@ -21,9 +21,6 @@ function App() {
         </div>
         <div className="player-container">
           <AuroraAudio
-            url="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
-            poster="https://images.unsplash.com/photo-1470225620780-dba8ba36b745?q=80&w=200&h=200&auto=format&fit=crop"
-            lyrics="/sample-lyrics.lrc"
             playlist={[
               {
                 name: "Aurora Dreams",
@@ -47,29 +44,17 @@ function App() {
                 lyrics: "/sample-lyrics.lrc"
               }
             ]}
-            mode="normal"
+            mode="effects"
             fullpage={fullpage}
             onFullpageChange={handleFullpageChange}
             effects={{
               background: 'Aurora',
-              cover: 'none',
-              lyrics: 'Scroll',
+              cover: 'Smoke',
+              lyrics: 'Floating',
               handle: 'LightingCenter'
             }}
-            loop={false}
+            loop="list"
             muted={false}
-            name="Sample Track"
-            author="Sample Artist"
-          />
-        </div>
-
-        <div style={{ width: '345px', height: '700px' }}>
-          <AuroraAudio
-            name="不可思议"
-            author="田昊天"
-            url="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
-            poster="https://images.unsplash.com/photo-1470225620780-dba8ba36b745?q=80&w=200&h=200&auto=format&fit=crop"
-            lyrics="/sample-lyrics.lrc"
           />
         </div>
       </main>

@@ -10,17 +10,23 @@
     "eject": "react-scripts eject"
   },
   "dependencies": {
+    "@react-three/drei": "^9.88.0",
+    "@react-three/fiber": "^8.15.0",
     "@testing-library/jest-dom": "^5.17.0",
     "@testing-library/react": "^13.4.0",
     "@testing-library/user-event": "^13.5.0",
+    "gsap": "^3.14.2",
+    "ogl": "^1.0.11",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "sass": "^1.70.0"
+    "sass": "^1.70.0",
+    "three": "^0.182.0"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
+    "@types/three": "^0.182.0",
     "react-scripts": "5.0.1",
     "typescript": "^5.0.0"
   },

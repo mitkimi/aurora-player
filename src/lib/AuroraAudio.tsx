@@ -10,6 +10,18 @@ import volumeLowIcon from './images/volume-0.svg';
 import volumeMediumIcon from './images/volume-1.svg';
 import volumeHighIcon from './images/volume-2.svg';
 
+// Import background effects
+import Aurora from './backgrounds/Aurora';
+import Lightning from './backgrounds/Lightning';
+import Threads from './backgrounds/Threads';
+import RippleGrid from './backgrounds/RippleGrid';
+import Orb from './backgrounds/Orb';
+import Prism from './backgrounds/Prism';
+
+// Import cover effects
+import Smoke from './covers/Smoke';
+import SplashCursor from './covers/SplashCursor';
+
 interface Track {
   name?: string;
   author?: string;
@@ -23,6 +35,7 @@ interface Effects {
   cover?: string;
   lyrics?: string;
   handle?: string;
+  coverBackground?: string;
 }
 
 interface Lyric {
@@ -30,8 +43,103 @@ interface Lyric {
   text: string;
 }
 
-type Mode = 'normal' | string;
+type Mode = 'normal' | 'effects';
 type LoopMode = boolean | 'single' | 'list';
+
+// Poster overlay component for effects mode
+const PosterOverlay: React.FC<{ poster: string; containerRef: React.RefObject<HTMLDivElement> }> = ({ poster, containerRef }) => {
+  const posterRef = useRef<HTMLDivElement>(null);
+  const [size, setSize] = useState<number>(0);
+  const [opacity, setOpacity] = useState<number>(0); // Start at 0
+
+  useEffect(() => {
+    const updateSize = () => {
+      if (containerRef.current && posterRef.current) {
+        const container = containerRef.current;
+        const containerWidth = container.offsetWidth;
+        const containerHeight = container.offsetHeight;
+        const newSize = Math.min(containerWidth, containerHeight);
+        setSize(newSize);
+      }
+    };
+
+    updateSize();
+    window.addEventListener('resize', updateSize);
+    
+    // Use ResizeObserver for more accurate container size tracking
+    if (containerRef.current) {
+      const resizeObserver = new ResizeObserver(updateSize);
+      resizeObserver.observe(containerRef.current);
+      return () => {
+        window.removeEventListener('resize', updateSize);
+        resizeObserver.disconnect();
+      };
+    }
+    
+    return () => window.removeEventListener('resize', updateSize);
+  }, [containerRef]);
+
+  // Opacity animation: 0 → 20% → 0 every 60 seconds
+  useEffect(() => {
+    if (!posterRef.current) return;
+
+    let currentTarget = 0.2; // Start by going to 20%
+    const duration = 60000; // 60 seconds per cycle
+    const transitionDuration = 3000; // 3 seconds for smooth transition
+    let timeoutId: NodeJS.Timeout | null = null;
+
+    const animateOpacity = () => {
+      if (posterRef.current) {
+        // Smooth transition to target opacity
+        posterRef.current.style.transition = `opacity ${transitionDuration}ms ease-in-out`;
+        setOpacity(currentTarget);
+        
+        // After duration, switch direction and continue
+        timeoutId = setTimeout(() => {
+          currentTarget = currentTarget === 0 ? 0.2 : 0; // Toggle between 0 and 0.2 (20%)
+          animateOpacity();
+        }, duration);
+      }
+    };
+
+    // Start animation after initial delay
+    const initialTimeout = setTimeout(() => {
+      animateOpacity();
+    }, 1000);
+
+    return () => {
+      clearTimeout(initialTimeout);
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
+  }, []);
+
+  return (
+    <div 
+      ref={posterRef}
+      className="aurora-audio__poster-overlay"
+      style={{
+        position: 'absolute',
+        top: '50%',
+        left: '50%',
+        transform: 'translate(-50%, -50%)',
+        width: size > 0 ? `${size}px` : '0px',
+        height: size > 0 ? `${size}px` : '0px',
+        aspectRatio: '1 / 1', // Ensure square
+        backgroundImage: `url(${poster})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        opacity: opacity, // Animated opacity: 0 → 10% → 0
+        zIndex: 4,
+        pointerEvents: 'none',
+        // Gradient mask for edges fading to transparent - ensure edges are completely transparent
+        maskImage: 'radial-gradient(ellipse 60% 60% at center, black 40%, rgba(0,0,0,0.9) 50%, rgba(0,0,0,0.7) 60%, rgba(0,0,0,0.4) 70%, rgba(0,0,0,0.2) 80%, transparent 90%)',
+        WebkitMaskImage: 'radial-gradient(ellipse 60% 60% at center, black 40%, rgba(0,0,0,0.9) 50%, rgba(0,0,0,0.7) 60%, rgba(0,0,0,0.4) 70%, rgba(0,0,0,0.2) 80%, transparent 90%)',
+      }}
+    />
+  );
+};
 
 interface AuroraAudioProps {
   url?: string;
@@ -48,6 +156,7 @@ interface AuroraAudioProps {
   author?: string;
   autoTransition?: boolean;
   transitionDuration?: number;
+  background?: string;
 }
 
 const AuroraAudio: React.FC<AuroraAudioProps> = ({ 
@@ -68,6 +177,7 @@ const AuroraAudio: React.FC<AuroraAudioProps> = ({
   muted = false,
   name,
   author,
+  background,
   autoTransition = false,
   transitionDuration = 10
 }) => {
@@ -668,19 +778,22 @@ const AuroraAudio: React.FC<AuroraAudioProps> = ({
     return namedColors.includes(color.toLowerCase());
   };
     
-  // Extract background color from effects based on mode
-  // In normal mode, only accept CSS color values and gradients, not enum values
-  // In other modes, enum values like 'Aurora', 'Gradient', 'Solid' are acceptable
-  let backgroundColor = '#000000'; // default to black
-  if (mode === 'normal') {
-    // In normal mode, only use as background color if it's a valid CSS color or gradient
-    if (typeof effects.background === 'string' && isValidColor(effects.background)) {
-      backgroundColor = effects.background;
-    }
-  } else {
-    // In other modes, if it's not a valid CSS color, we still assign it (for enum values like 'Aurora')
-    if (typeof effects.background === 'string') {
-      backgroundColor = effects.background;
+  // Use background prop if provided, otherwise extract from effects
+  let backgroundColor = background || '#000000'; // default to black
+  if (!background) {
+    // Extract background color from effects based on mode
+    // In normal mode, only accept CSS color values and gradients, not enum values
+    // In other modes, enum values like 'Aurora', 'Gradient', 'Solid' are acceptable
+    if (mode === 'normal') {
+      // In normal mode, only use as background color if it's a valid CSS color or gradient
+      if (typeof effects.background === 'string' && isValidColor(effects.background)) {
+        backgroundColor = effects.background;
+      }
+    } else {
+      // In other modes, if it's not a valid CSS color, we still assign it (for enum values like 'Aurora')
+      if (typeof effects.background === 'string') {
+        backgroundColor = effects.background;
+      }
     }
   }
   
@@ -715,9 +828,116 @@ const AuroraAudio: React.FC<AuroraAudioProps> = ({
   };
   
   return (
-    <div className={playerClass} ref={containerRef} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave} style={{ background: backgroundColor }}>
+    <div className={playerClass} ref={containerRef} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
       <audio ref={audioRef} src={currentTrack.url} />
       
+      {/* Background color layer - z-index 0 (lowest layer) */}
+      <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 0, background: backgroundColor }} />
+      
+      {/* Background effects for effects mode */}
+      {mode === 'effects' && effects.background && effects.background !== 'none' && (
+        <>
+          {/* Aurora background effect */}
+          {effects.background === 'Aurora' && (
+            <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 1 }}>
+              <Aurora
+                colorStops={["#7cff67","#B19EEF","#5227FF"]}
+                blend={0.5}
+                amplitude={1.0}
+                speed={1}
+              />
+            </div>
+          )}
+          
+          {/* Lightning background effect */}
+          {effects.background === 'Lightning' && (
+            <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 1 }}>
+              <Lightning />
+            </div>
+          )}
+          
+          {/* Threads background effect */}
+          {effects.background === 'Threads' && (
+            <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 1 }}>
+              <Threads />
+            </div>
+          )}
+          
+          {/* RippleGrid background effect */}
+          {effects.background === 'RippleGrid' && (
+            <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 1 }}>
+              <RippleGrid
+                enableRainbow={false}
+                gridColor="#ffffff"
+                rippleIntensity={0.05}
+                gridSize={10}
+                gridThickness={15}
+                mouseInteraction={true}
+                mouseInteractionRadius={1.2}
+                opacity={0.8}
+              />
+            </div>
+          )}
+          
+          {/* Orb background effect */}
+          {effects.background === 'Orb' && (
+            <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 1 }}>
+              <Orb
+                hoverIntensity={2}
+                rotateOnHover={true}
+                hue={0}
+                forceHoverState={false}
+                backgroundColor="#000000"
+              />
+            </div>
+          )}
+          
+          {/* Prism background effect */}
+          {effects.background === 'Prism' && (
+            <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 1 }}>
+              <Prism
+                animationType="rotate"
+                timeScale={0.5}
+                height={3.5}
+                baseWidth={5.5}
+                scale={3.6}
+                hueShift={0}
+                colorFrequency={1}
+                noise={0}
+                glow={1}
+              />
+            </div>
+          )}
+        </>
+      )}
+      
+      {/* Blur layer for effects mode - covers z-index 1 background effects */}
+      {mode === 'effects' && effects.cover && effects.cover !== 'none' && (
+        <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 2, backdropFilter: 'blur(5px)' }} />
+      )}
+      
+      {/* Cover effects for effects mode */}
+      {mode === 'effects' && effects.cover && effects.cover !== 'none' && (
+        <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 3, overflow: 'hidden', borderRadius: 'inherit' }}>
+          {/* Smoke cover effect */}
+          {effects.cover === 'Smoke' && (
+            <Smoke speed={0.5} opacity={1.0} intensity={1.0} emitterCount={15} />
+          )}
+          
+          {/* SplashCursor cover effect */}
+          {effects.cover === 'Splash' && (
+            <SplashCursor background={effects.coverBackground || '#000000'} />
+          )}
+        </div>
+      )}
+      
+      {/* Poster layer for effects mode - z-index 4 */}
+      {mode === 'effects' && currentTrack.poster && (
+        <PosterOverlay 
+          poster={currentTrack.poster}
+          containerRef={containerRef}
+        />
+      )}
       
       {/* Semi-transparent poster overlay in normal mode */}
       {mode === 'normal' && currentTrack.poster && (
@@ -739,7 +959,7 @@ const AuroraAudio: React.FC<AuroraAudioProps> = ({
         />
       )}
       
-      {mode === 'normal' ? (
+      {mode === 'normal' && (
         <div className="aurora-audio__container" style={{ zIndex: 2, position: 'relative' }}>
           <div className={mediaLayoutClass}>
             {/* Record with album cover */}
@@ -778,91 +998,10 @@ const AuroraAudio: React.FC<AuroraAudioProps> = ({
             )}
           </div>
         </div>
-      ) : (
-        <div className="aurora-audio__artwork">
-          {currentTrack.poster ? (
-            <img 
-              src={currentTrack.poster} 
-              alt="Album Cover" 
-              className="aurora-audio__cover-image" 
-            />
-          ) : (
-            <div className="aurora-audio__visualizer">
-              {/* Aurora visualization effect */}
-              <div className="aurora-audio__visualizer-bars">
-                {[...Array(20)].map((_, i) => (
-                  <div 
-                    key={i} 
-                    className="aurora-audio__visualizer-bar"
-                    style={{ height: `${Math.random() * 100}%` }}
-                  ></div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
       )}
       
-      {mode !== 'normal' && (
-        <div className="aurora-audio__info">
-          <h3 className="aurora-audio__title">{currentTrack.name || 'Unknown Title'}</h3>
-          <p className="aurora-audio__artist">{currentTrack.author || 'Unknown Artist'}</p>
-        </div>
-      )}
-      
-      {mode !== 'normal' && (
-        <div className="aurora-audio__progress">
-          <span className="aurora-audio__time">{formatTime(currentTime)}</span>
-          <div className="aurora-audio__progress-relative-container">
-            {/* Loading indicator above progress bar at specific position */}
-            {isLoading && (
-              <div className="aurora-audio__loading-indicator--above-progress" style={{left: `${loadingPosition}%`, transform: 'translateX(-50%)'}}>
-                <div className="aurora-audio__spinner"></div>
-              </div>
-            )}
-            <div 
-              className="aurora-audio__progress-bar" 
-              onClick={handleProgressClick}
-            >
-              <div 
-                className="aurora-audio__progress-loaded" 
-                style={{ width: `${progress}%` }}
-              ></div>
-            </div>
-          </div>
-          <span className="aurora-audio__time">{formatTime(duration)}</span>
-        </div>
-      )}
-      
-      {mode !== 'normal' && (
-        <div className="aurora-audio__controls">
-          <button 
-            className={`aurora-audio__control-btn ${isPlaying ? 'playing' : ''}`}
-            onClick={togglePlayPause}
-            disabled={!duration || isLoading}
-          >
-            {isPlaying ? '⏸️' : '▶️'}
-          </button>
-        </div>
-      )}
-      
-      {mode !== 'normal' && (
-        <div className="aurora-audio__volume">
-          <span>🔊</span>
-          <input 
-            type="range" 
-            min="0" 
-            max="1" 
-            step="0.01" 
-            value={volume}
-            onChange={handleVolumeChange}
-            className="aurora-audio__volume-slider"
-          />
-        </div>
-      )}
-      
-      {/* Controls overlay for normal mode */}
-      {mode === 'normal' && (
+      {/* Controls overlay for normal and effects mode */}
+      {(mode === 'normal' || mode === 'effects') && (
         <div className={`aurora-audio__controls-overlay ${showControls ? 'visible' : 'hidden'}`}>
           <div className="aurora-audio__progress-track">
             <div className="aurora-audio__progress-relative-container">
