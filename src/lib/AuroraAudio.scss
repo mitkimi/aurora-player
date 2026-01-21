@@ -1,12 +1,15 @@
 .aurora-audio {
   width: 100%;
   height: 100%;
+  max-height: 100%; // Strict height limit
   margin: 0;
   padding: 0;
   border-radius: 16px;
   background: #000000;
   position: relative;
   overflow: hidden;
+  box-sizing: border-box; // Include padding in height calculation
+  contain: layout style; // Isolate layout calculations
 
   &--fullpage {
     position: fixed;
@@ -28,10 +31,14 @@
     position: relative;
     width: 100%;
     height: 100%;
+    max-height: 100%; // Strict height limit
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
+    overflow: hidden; // Prevent content from overflowing
+    contain: layout style; // Isolate layout calculations
+    box-sizing: border-box; // Include padding in height calculation
   }
 
   &__media-layout {
@@ -41,6 +48,12 @@
     gap: 20px;
     width: 100%;
     height: 100%;
+    max-height: 100%; // Strict height limit
+    position: relative;
+    overflow: hidden; // Prevent content from overflowing
+    min-height: 0; // Prevent flex item from overflowing parent
+    box-sizing: border-box; // Include padding in height calculation
+    contain: layout style; // Isolate layout calculations
     
     // When width >= height (landscape), use horizontal layout
     &.landscape {
@@ -48,16 +61,27 @@
       justify-content: space-between;
       align-items: center;
       height: 100%;
+      max-height: 100%; // Strict limit
       
       // In landscape mode, lyrics and record areas split width equally
       .aurora-audio__lyrics {
         width: 50%;
         height: 100%;
+        max-height: 100%; // Strict height limit
+        min-height: 0;
+        position: relative;
+        flex-shrink: 0;
+        flex-grow: 0;
       }
       
       .aurora-audio__record-container {
-        width: 50%; // Take remaining space
+        width: 50%;
         height: 100%;
+        max-height: 100%; // Strict height limit
+        min-height: 0;
+        position: relative;
+        flex-shrink: 0;
+        flex-grow: 0;
       }
     }
     
@@ -65,20 +89,33 @@
     &.portrait,
     &.column {
       flex-direction: column;
-      justify-content: space-between;
+      justify-content: flex-start;
       align-items: center;
       width: 100%;
       height: 100%;
+      max-height: 100%; // Strict limit
       
       // In portrait mode, lyrics and record areas split height equally
       .aurora-audio__lyrics {
         width: 100%;
         height: 50%;
+        max-height: 50%; // Strict height limit - critical
+        min-height: 0;
+        flex-shrink: 0;
+        flex-grow: 0;
+        position: relative;
+        top: 0;
       }
       
       .aurora-audio__record-container {
         width: 100%;
         height: 50%;
+        max-height: 50%; // Strict height limit
+        min-height: 0;
+        flex-shrink: 0;
+        flex-grow: 0;
+        position: relative;
+        top: 0;
       }
     }
   }
@@ -151,55 +188,64 @@
     text-align: center;
     font-size: 14px;
     height: 200px;
-    overflow-y: visible;
+    overflow-y: auto;
+    overflow-x: hidden;
+    position: relative;
+    box-sizing: border-box;
+    contain: strict; // Use strict containment for maximum isolation
+    isolation: isolate; // Create new stacking context
+    will-change: scroll-position; // Optimize scrolling performance
+    // Prevent any layout impact on parent
+    display: flex;
+    flex-direction: column;
+    
+    // Hide scrollbar
+    &::-webkit-scrollbar {
+      display: none;
+    }
+    -ms-overflow-style: none;
+    scrollbar-width: none;
     
     // For landscape (horizontal) layout
     .aurora-audio__media-layout.landscape & {
       margin-top: 0;
       height: 100%;
-      overflow-y: visible;
-      display: flex;
-      align-items: center;
-              
-      &-container {
-        height: 100%;
-        width: 100%;
-        overflow-y: visible;
-        display: flex;
-        flex-direction: column;
-        align-items: flex-start;
-        position: relative;
-        padding: 0 10px; // Add horizontal padding for landscape
-                
-        &::-webkit-scrollbar {
-          display: none;
-        }
-                
-        -ms-overflow-style: none;
-        scrollbar-width: none;
-      }
+      max-height: 100%; // Strict limit
+      overflow-y: auto;
+      overflow-x: hidden;
+      position: relative;
+    }
+    
+    // For portrait (vertical) layout
+    .aurora-audio__media-layout.portrait &,
+    .aurora-audio__media-layout.column & {
+      position: relative;
+      height: 50%;
+      margin-top: 0;
+      max-height: 50%; // Strict limit - never exceed 50%
+      flex-shrink: 0; // Prevent shrinking
+      flex-grow: 0; // Prevent growing
+      // Ensure height is strictly enforced
+      min-height: 0; // Allow flex to shrink if needed
     }
     
     &-container {
       display: flex;
       flex-direction: column;
       align-items: center;
-      overflow-y: visible;
+      padding: 0 10px;
+      box-sizing: border-box;
+      width: 100%;
+      position: relative;
+      // Critical: Do not set any height properties that could affect parent
+      // Let the parent's overflow handle scrolling
+      // Height is determined by content, but parent clips it
       
       // For landscape (horizontal) layout - left align lyrics
       .aurora-audio__media-layout.landscape & {
         align-items: flex-start;
         text-align: left;
-        
-        .aurora-audio__lyric-line {
-          width: 100%;
-          font-size: 18px;
-          
-          &--active {
-            font-size: 24px;
-            color: #ffffff;
-          }
-        }
+        // Vertical padding will be set dynamically via JavaScript
       }
       
       // For portrait (vertical) layout - center align lyrics
@@ -207,58 +253,21 @@
       .aurora-audio__media-layout.column & {
         align-items: center;
         text-align: center;
+        padding: 0 10px;
       }
-      
+    }
+  }
 
-      
-      // For normal mode - align lyrics to top initially, scroll to active lyric
-      .aurora-audio--normal & {
-        display: flex;
-        flex-direction: column;
-        height: 100%;
-        justify-content: flex-start;
-        
-        .aurora-audio__lyric-line {
-          font-size: 18px;
-          
-          &--active {
-            font-size: 24px;
-            color: #ffffff;
-          }
-        }
-      }
-    }
+  &__lyric-line {
+    font-size: 18px;
+    color: rgba(255, 255, 255, 0.6); // 60% white
+    padding: 4px 0;
+    transition: font-size 0.3s ease, color 0.3s ease;
+    line-height: 1.5;
     
-    &-line {
-      font-size: 18px;
-      
-      &--active {
-        font-size: 24px;
-        color: #ffffff;
-      }
-    }
-    
-    // For landscape (horizontal) layout - specific lyric alignment
-    .aurora-audio__media-layout.landscape & {
-      &-container {
-        position: relative;
-        height: 100%;
-        overflow: visible;
-        display: flex;
-        flex-direction: column;
-        justify-content: flex-start;
-        
-        .aurora-audio__lyric-line {
-          text-align: left;
-          width: 100%;
-          font-size: 18px;
-          
-          &--active {
-            font-size: 24px;
-            color: #ffffff;
-          }
-        }
-      }
+    &--active {
+      font-size: 24px;
+      color: #ffffff; // 100% white
     }
   }
 

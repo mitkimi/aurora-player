@@ -111,6 +111,7 @@ const AuroraAudio: React.FC<AuroraAudioProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const activeLyricRef = useRef<HTMLDivElement>(null);
   const lyricsContainerRef = useRef<HTMLDivElement>(null);
+  const lyricsInnerContainerRef = useRef<HTMLDivElement>(null);
   const progressBarRef = useRef<HTMLDivElement>(null);
   const volumeSliderRef = useRef<HTMLDivElement>(null);
 
@@ -314,6 +315,81 @@ const AuroraAudio: React.FC<AuroraAudioProps> = ({
       setCurrentLyricIndex(-1);
     }
   }, [currentTime, lyrics]);
+
+  // Update padding based on container height for landscape mode
+  useEffect(() => {
+    const updatePadding = () => {
+      if (!lyricsContainerRef.current || !lyricsInnerContainerRef.current) return;
+      
+      const container = lyricsContainerRef.current;
+      const innerContainer = lyricsInnerContainerRef.current;
+      
+      // Get the fixed container height (not scrollHeight)
+      const containerHeight = container.clientHeight;
+      
+      if (isLandscape) {
+        const paddingValue = containerHeight / 2;
+        innerContainer.style.paddingTop = `${paddingValue}px`;
+        innerContainer.style.paddingBottom = `${paddingValue}px`;
+      } else {
+        // Portrait mode: no padding
+        innerContainer.style.paddingTop = '0px';
+        innerContainer.style.paddingBottom = '0px';
+      }
+      
+      // Ensure inner container height doesn't affect external layout
+      // The container itself handles overflow, inner container can be any height
+      innerContainer.style.height = 'auto';
+      innerContainer.style.maxHeight = 'none'; // Remove max-height restriction
+    };
+
+    // Initial update with a small delay to ensure DOM is ready
+    const timeoutId = setTimeout(updatePadding, 0);
+
+    // Watch for container size changes
+    const container = lyricsContainerRef.current;
+    if (container) {
+      const resizeObserver = new ResizeObserver(updatePadding);
+      resizeObserver.observe(container);
+      
+      return () => {
+        clearTimeout(timeoutId);
+        resizeObserver.disconnect();
+      };
+    }
+    
+    return () => {
+      clearTimeout(timeoutId);
+    };
+  }, [isLandscape, lyrics.length]);
+
+  // Scroll to current lyric with smooth behavior
+  useEffect(() => {
+    if (currentLyricIndex >= 0 && activeLyricRef.current && lyricsContainerRef.current) {
+      const activeElement = activeLyricRef.current;
+      const container = lyricsContainerRef.current;
+      
+      if (isLandscape) {
+        // Landscape: center current lyric vertically in the player
+        const containerHeight = container.clientHeight;
+        const activeElementTop = activeElement.offsetTop;
+        const activeElementHeight = activeElement.offsetHeight;
+        const scrollPosition = activeElementTop - (containerHeight / 2) + (activeElementHeight / 2);
+        container.scrollTo({
+          top: scrollPosition,
+          behavior: 'smooth'
+        });
+      } else {
+        // Portrait: align current lyric to top of lyrics area
+        // Use scrollIntoView for better positioning
+        activeElement.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start',
+          inline: 'nearest'
+        });
+      }
+    }
+  }, [currentLyricIndex, isLandscape]);
   
 
   
@@ -657,7 +733,7 @@ const AuroraAudio: React.FC<AuroraAudioProps> = ({
             {/* Lyrics display */}
             {hasLyrics && (
               <div className="aurora-audio__lyrics" ref={lyricsContainerRef}>
-                <div className="aurora-audio__lyrics-container">
+                <div className="aurora-audio__lyrics-container" ref={lyricsInnerContainerRef}>
                   {lyrics.map((line, index) => (
                     <div 
                       key={index} 
