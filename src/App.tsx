@@ -134,16 +134,16 @@ function App() {
               {
                 name: "打上花火",
                 author: "Daoko, 米津玄師",
-                url: "/Daoko,米津玄師 - 打上花火.mp3",
-                poster: "/109951163009282836.jpg",
-                lyrics: "/Daoko,米津玄師 - 打上花火.lrc"
+                url: "/aurora-player/Daoko,米津玄師 - 打上花火.mp3",
+                poster: "/aurora-player/109951163009282836.jpg",
+                lyrics: "/aurora-player/Daoko,米津玄師 - 打上花火.lrc"
               },
               {
                 name: "ひとり上手",
                 author: "中島みゆき",
-                url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3", // Placeholder URL - replace with actual audio file
+                url: "/aurora-player/中島みゆき - ひとり上手.mp3", // Placeholder URL - replace with actual audio file
                 poster: "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?q=80&w=200&h=200&auto=format&fit=crop",
-                lyrics: "/中島みゆき - ひとり上手.lrc"
+                lyrics: "/aurora-player/中島みゆき - ひとり上手.lrc"
               }
             ]}
             mode={mode}

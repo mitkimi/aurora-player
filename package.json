@@ -1,11 +1,20 @@
 {
   "name": "aurora-player",
   "version": "1.0.16",
+  "homepage": "/aurora-player",
   "description": "A modern audio and video player component with Aurora effects and additional features",
   "main": "dist/index.js",
   "scripts": {
     "start": "react-scripts start",
+    "build": "npm run build:component",
+    "build:component": "rimraf dist && tsc -p tsconfig.build.json && babel src/lib --out-dir dist --extensions \".ts,.tsx\" --copy-files && npm run build:css",
+    "build:css": "sass src/lib/:dist/ --no-source-map --style=compressed",
+    "prebuild": "rimraf build",
     "build": "react-scripts build",
+    "postbuild": "npm run copy-dist-to-build",
+    "copy-dist-to-build": "cp -r dist/* build/dist/ 2>/dev/null || xcopy /E /I /Q dist build\\dist 2>nul || echo Copy completed",
+    "build:lib": "npm run build:component",
+    "build:app": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
   },
@@ -25,11 +34,14 @@
     "three": "^0.182.0"
   },
   "devDependencies": {
+    "@babel/cli": "^7.22.0",
+    "@babel/core": "^7.22.0",
     "@types/node": "^20.0.0",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
     "@types/three": "^0.182.0",
     "react-scripts": "5.0.1",
+    "rimraf": "^5.0.0",
     "typescript": "^5.0.0"
   },
   "eslintConfig": {
