@@ -15,7 +15,7 @@ interface Track {
   author?: string;
   url: string;
   poster?: string;
-  lyrics_url?: string;
+  lyrics?: string;
 }
 
 interface Effects {
@@ -30,19 +30,19 @@ interface Lyric {
   text: string;
 }
 
-type Position = 'regular' | 'fullpage';
 type Mode = 'normal' | string;
+type LoopMode = boolean | 'single' | 'list';
 
 interface AuroraAudioProps {
   url?: string;
   poster?: string;
-  lyrics_url?: string;
+  lyrics?: string;
   playlist?: Track[];
   mode?: Mode;
   effects?: Effects;
-  position?: Position;
-  onPositionChange?: (position: Position) => void;
-  loop?: boolean;
+  fullpage?: boolean;
+  onFullpageChange?: (fullpage: boolean) => void;
+  loop?: LoopMode;
   muted?: boolean;
   name?: string;
   author?: string;
@@ -53,7 +53,7 @@ interface AuroraAudioProps {
 const AuroraAudio: React.FC<AuroraAudioProps> = ({ 
   url, 
   poster, 
-  lyrics_url, 
+  lyrics, 
   playlist, 
   mode = 'normal',
   effects = {
@@ -62,8 +62,8 @@ const AuroraAudio: React.FC<AuroraAudioProps> = ({
     lyrics: 'Scroll',
     handle: 'LightingCenter'
   },
-  position = 'regular',
-  onPositionChange,
+  fullpage = false,
+  onFullpageChange,
   loop = false,
   muted = false,
   name,
@@ -81,7 +81,7 @@ const AuroraAudio: React.FC<AuroraAudioProps> = ({
     name: name || '',
     author: author || '',
     poster,
-    lyrics_url
+    lyrics
   };
   
   // Use the current track from playlist or direct props
@@ -104,7 +104,7 @@ const AuroraAudio: React.FC<AuroraAudioProps> = ({
   const hideControlsTimerRef = useRef<NodeJS.Timeout | null>(null);
   
   // State for lyrics
-  const [lyrics, setLyrics] = useState<Lyric[]>([]);
+  const [parsedLyrics, setParsedLyrics] = useState<Lyric[]>([]);
   const [currentLyricIndex, setCurrentLyricIndex] = useState<number>(-1);
   
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -135,16 +135,35 @@ const AuroraAudio: React.FC<AuroraAudioProps> = ({
       }
     };
 
+    const handleEnded = () => {
+      // Handle list loop: if loop is 'list' or true (with playlist), go to next track
+      if (playlist && playlist.length > 1) {
+        const isListLoop = loop === 'list' || (loop === true && playlist.length > 1);
+        if (isListLoop) {
+          // List loop: go to next track
+          if (currentTrackIndex < playlist.length - 1) {
+            setCurrentTrackIndex(prev => prev + 1);
+          } else {
+            // Loop back to first track
+            setCurrentTrackIndex(0);
+          }
+        }
+        // If loop is false or 'single', do nothing (single loop is handled by audio.loop)
+      }
+    };
+
     if (audio) {
       audio.addEventListener('loadeddata', setAudioData);
       audio.addEventListener('timeupdate', setAudioTime);
+      audio.addEventListener('ended', handleEnded);
       
       return () => {
         audio.removeEventListener('loadeddata', setAudioData);
         audio.removeEventListener('timeupdate', setAudioTime);
+        audio.removeEventListener('ended', handleEnded);
       };
     }
-  }, []);
+  }, [loop, playlist, currentTrackIndex]);
 
   // Effect for rotation animation
   useEffect(() => {
@@ -213,30 +232,34 @@ const AuroraAudio: React.FC<AuroraAudioProps> = ({
   // Update loop state when prop changes
   useEffect(() => {
     if (audioRef.current) {
-      audioRef.current.loop = loop;
+      // Set audio element loop based on loop mode
+      // true or 'single' means single track loop, 'list' means playlist loop
+      // false means no loop
+      const shouldLoop = loop === true || loop === 'single';
+      audioRef.current.loop = shouldLoop;
     }
   }, [loop]);
   
   // Load lyrics if available
   useEffect(() => {
-    if (currentTrack.lyrics_url) {
+    if (currentTrack.lyrics) {
       const loadLyrics = async () => {
         try {
-          const response = await fetch(currentTrack.lyrics_url!);
+          const response = await fetch(currentTrack.lyrics!);
           const text = await response.text();
           parseLyrics(text);
         } catch (error) {
           console.error('Error loading lyrics:', error);
           // Fallback to empty lyrics
-          setLyrics([]);
+          setParsedLyrics([]);
         }
       };
       
       loadLyrics();
     } else {
-      setLyrics([]);
+      setParsedLyrics([]);
     }
-  }, [currentTrack.lyrics_url, currentTrackIndex]);
+  }, [currentTrack.lyrics, currentTrackIndex]);
   
   // Parse lyrics from LRC format
   const parseLyrics = (lrcText: string) => {
@@ -262,7 +285,7 @@ const AuroraAudio: React.FC<AuroraAudioProps> = ({
     
     // Sort by time
     parsedLyrics.sort((a, b) => a.time - b.time);
-    setLyrics(parsedLyrics);
+    setParsedLyrics(parsedLyrics);
   };
   
   // Effect to handle track changes
@@ -297,9 +320,9 @@ const AuroraAudio: React.FC<AuroraAudioProps> = ({
   
   // Update current lyric based on playback time
   useEffect(() => {
-    if (lyrics.length > 0) {
-      const currentIndex = lyrics.findIndex((lyric, index) => {
-        const nextLyric = lyrics[index + 1];
+    if (parsedLyrics.length > 0) {
+      const currentIndex = parsedLyrics.findIndex((lyric, index) => {
+        const nextLyric = parsedLyrics[index + 1];
         return currentTime >= lyric.time && (!nextLyric || currentTime < nextLyric.time);
       });
       
@@ -307,14 +330,14 @@ const AuroraAudio: React.FC<AuroraAudioProps> = ({
         setCurrentLyricIndex(currentIndex);
       } else {
         // Check if we're before the first lyric
-        if (lyrics.length > 0 && currentTime < lyrics[0].time) {
+        if (parsedLyrics.length > 0 && currentTime < parsedLyrics[0].time) {
           setCurrentLyricIndex(-1); // Show no lyric before first
         }
       }
     } else {
       setCurrentLyricIndex(-1);
     }
-  }, [currentTime, lyrics]);
+  }, [currentTime, parsedLyrics]);
 
   // Update padding based on container height for landscape mode
   useEffect(() => {
@@ -361,7 +384,7 @@ const AuroraAudio: React.FC<AuroraAudioProps> = ({
     return () => {
       clearTimeout(timeoutId);
     };
-  }, [isLandscape, lyrics.length]);
+  }, [isLandscape, parsedLyrics.length]);
 
   // Scroll to current lyric with smooth behavior
   useEffect(() => {
@@ -416,8 +439,11 @@ const AuroraAudio: React.FC<AuroraAudioProps> = ({
   const goToPrevious = () => {
     if (!playlist || playlist.length === 0) return;
     
-    if (loop && currentTrackIndex === 0) {
-      // If looping and at first track, go to last track
+    // Check if list loop is enabled
+    const isListLoop = loop === 'list' || (loop === true && playlist.length > 1);
+    
+    if (isListLoop && currentTrackIndex === 0) {
+      // If list looping and at first track, go to last track
       setCurrentTrackIndex(playlist.length - 1);
     } else if (currentTrackIndex > 0) {
       // Otherwise, go to previous track
@@ -428,8 +454,11 @@ const AuroraAudio: React.FC<AuroraAudioProps> = ({
   const goToNext = () => {
     if (!playlist || playlist.length === 0) return;
     
-    if (loop && currentTrackIndex === playlist.length - 1) {
-      // If looping and at last track, go to first track
+    // Check if list loop is enabled
+    const isListLoop = loop === 'list' || (loop === true && playlist.length > 1);
+    
+    if (isListLoop && currentTrackIndex === playlist.length - 1) {
+      // If list looping and at last track, go to first track
       setCurrentTrackIndex(0);
     } else if (currentTrackIndex < playlist.length - 1) {
       // Otherwise, go to next track
@@ -607,10 +636,10 @@ const AuroraAudio: React.FC<AuroraAudioProps> = ({
   // Handle fullscreen exit with ESC key
   useEffect(() => {
     const handleEscKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && position === 'fullpage') {
-        // Call a callback to change position back to regular
-        if (onPositionChange) {
-          onPositionChange('regular');
+      if (event.key === 'Escape' && fullpage) {
+        // Call a callback to change fullpage back to false
+        if (onFullpageChange) {
+          onFullpageChange(false);
         }
       }
     };
@@ -619,7 +648,7 @@ const AuroraAudio: React.FC<AuroraAudioProps> = ({
     return () => {
       window.removeEventListener('keydown', handleEscKey);
     };
-  }, [position, onPositionChange]);
+  }, [fullpage, onFullpageChange]);
 
   // Determine classes based on props
   // Function to check if a string is a valid CSS color format
@@ -655,10 +684,11 @@ const AuroraAudio: React.FC<AuroraAudioProps> = ({
     }
   }
   
-  const playerClass = `aurora-audio aurora-audio--${position} aurora-audio--${mode} aurora-audio--bg-${effects.background} aurora-audio--cover-${effects.cover} aurora-audio--lyrics-${effects.lyrics} aurora-audio--handle-${effects.handle}${isLoading ? ' aurora-audio--loading' : ''}`;
+  const positionClass = fullpage ? 'fullpage' : 'regular';
+  const playerClass = `aurora-audio aurora-audio--${positionClass} aurora-audio--${mode} aurora-audio--bg-${effects.background} aurora-audio--cover-${effects.cover} aurora-audio--lyrics-${effects.lyrics} aurora-audio--handle-${effects.handle}${isLoading ? ' aurora-audio--loading' : ''}`;
 
   // Determine layout based on presence of lyrics and container dimensions
-  const hasLyrics = !!currentTrack.lyrics_url;
+  const hasLyrics = !!currentTrack.lyrics;
   const mediaLayoutClass = `aurora-audio__media-layout ${isLandscape ? 'landscape' : 'portrait'}`;
   
   // Handle mouse enter/leave for controls visibility
@@ -734,7 +764,7 @@ const AuroraAudio: React.FC<AuroraAudioProps> = ({
             {hasLyrics && (
               <div className="aurora-audio__lyrics" ref={lyricsContainerRef}>
                 <div className="aurora-audio__lyrics-container" ref={lyricsInnerContainerRef}>
-                  {lyrics.map((line, index) => (
+                  {parsedLyrics.map((line, index) => (
                     <div 
                       key={index} 
                       className={`aurora-audio__lyric-line ${index === currentLyricIndex ? 'aurora-audio__lyric-line--active' : ''}`}
@@ -877,7 +907,7 @@ const AuroraAudio: React.FC<AuroraAudioProps> = ({
                 <button 
                   className="aurora-audio__control-button"
                   onClick={goToPrevious}
-                  disabled={currentTrackIndex === 0 && !loop}
+                  disabled={currentTrackIndex === 0 && loop !== 'list' && !(loop === true && playlist.length > 1)}
                 >
                   <img src={nextIcon} alt="Previous" width="16" height="16" style={{transform: 'rotate(180deg)'}} />
                 </button>
@@ -895,7 +925,7 @@ const AuroraAudio: React.FC<AuroraAudioProps> = ({
                 <button 
                   className="aurora-audio__control-button"
                   onClick={goToNext}
-                  disabled={(currentTrackIndex === playlist.length - 1) && !loop}
+                  disabled={(currentTrackIndex === playlist.length - 1) && loop !== 'list' && !(loop === true && playlist.length > 1)}
                 >
                   <img src={nextIcon} alt="Next" width="16" height="16" />
                 </button>
@@ -905,7 +935,7 @@ const AuroraAudio: React.FC<AuroraAudioProps> = ({
             {/* Right: Volume Control */}
             <div className="aurora-audio__volume-control-wrapper">
               <span className="aurora-audio__volume-control-percent">
-                {Math.round(volume * 100)}%
+                {isMuted ? '0%' : `${Math.round(volume * 100)}%`}
               </span>
               <div 
                 className="aurora-audio__volume-control-button"
