@@ -212,5 +212,11 @@ src/
 - Safari (latest)
 - Edge (latest)
 
+## GitHub Pages Deployment
+
+This project can be deployed to GitHub Pages. After configuring GitHub Actions and setting the repository to `aurora-player`, the site will be available at:
+
+`https://mitkimi.github.io/aurora-player`
+
 ## License
 MIT
