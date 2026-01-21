@@ -292,7 +292,7 @@ const AuroraAudio: React.FC<AuroraAudioProps> = ({
   const [isMuted, setIsMuted] = useState<boolean>(muted);
   const [showVolumeSlider, setShowVolumeSlider] = useState<boolean>(false);
   const [showControls, setShowControls] = useState<boolean>(true);
-  const [isMouseOver, setIsMouseOver] = useState<boolean>(false); // Used in handleMouseEnter/handleMouseLeave functions
+  const [isMouseOver, setIsMouseOver] = useState<boolean>(false); // eslint-disable-line @typescript-eslint/no-unused-vars
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [loadingPosition, setLoadingPosition] = useState<number>(0);
@@ -303,7 +303,7 @@ const AuroraAudio: React.FC<AuroraAudioProps> = ({
   // State for lyrics
   const [parsedLyrics, setParsedLyrics] = useState<Lyric[]>([]);
   const [currentLyricIndex, setCurrentLyricIndex] = useState<number>(-1);
-  const [previousLyricIndex, setPreviousLyricIndex] = useState<number>(-1); // Used in setCurrentLyricIndex to track previous state
+  const [previousLyricIndex, setPreviousLyricIndex] = useState<number>(-1); // eslint-disable-line @typescript-eslint/no-unused-vars
   
   const audioRef = useRef<HTMLAudioElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -390,7 +390,7 @@ const AuroraAudio: React.FC<AuroraAudioProps> = ({
       
       return () => clearTimeout(timer);
     }
-  }, [currentTrackIndex, isPlaying]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [currentTrackIndex, isPlaying]);
 
   // Effect for rotation animation
   useEffect(() => {
@@ -613,14 +613,14 @@ const AuroraAudio: React.FC<AuroraAudioProps> = ({
       audioRef.current.addEventListener('canplay', handleCanPlay);
       
       // Clean up event listener
+      const audio = audioRef.current;
       return () => {
-        const audio = audioRef.current;
         if (audio) {
           audio.removeEventListener('canplay', handleCanPlay);
         }
       };
     }
-  }, [currentTrackIndex, currentTrack.url]); // Removed isPlaying from dependencies to prevent reset on play/pause // eslint-disable-line react-hooks/exhaustive-deps
+  }, [currentTrackIndex, currentTrack.url]); // Removed isPlaying from dependencies to prevent reset on play/pause
   
   // Update current lyric based on playback time
   useEffect(() => {
@@ -663,7 +663,7 @@ const AuroraAudio: React.FC<AuroraAudioProps> = ({
       setPreviousLyricIndex(currentLyricIndex);
       setCurrentLyricIndex(-1);
     }
-  }, [currentTime, parsedLyrics, currentLyricIndex]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [currentTime, parsedLyrics, currentLyricIndex]);
 
   // Update padding based on container height for landscape mode (normal mode)
   useEffect(() => {
@@ -931,6 +931,7 @@ const AuroraAudio: React.FC<AuroraAudioProps> = ({
     handleProgressDrag(e.nativeEvent);
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const volume = parseFloat(e.target.value);
     setVolume(volume);

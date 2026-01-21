@@ -33,7 +33,7 @@ const Smoke: React.FC<SmokeProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const particlesRef = useRef<SmokeParticle[]>([]);
   const emittersRef = useRef<{ x: number; intervalId: number | null; timeoutId?: number | null }[]>([]);
-  const animationFrameRef = useRef<number | null>(null);
+  const animationFrameRef = useRef<number | null>(null); // eslint-disable-line @typescript-eslint/no-unused-vars
 
   // Create a smoke particle element
   const createParticleElement = useCallback((): HTMLDivElement => {

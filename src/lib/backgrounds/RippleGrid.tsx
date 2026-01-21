@@ -235,17 +235,18 @@ void main() {
 
     requestAnimationFrame(render);
 
+    const container = containerRef.current;
     return () => {
       window.removeEventListener('resize', resize);
-      if (mouseInteraction && containerRef.current) {
-        containerRef.current.removeEventListener('mousemove', handleMouseMove);
-        containerRef.current.removeEventListener('mouseenter', handleMouseEnter);
-        containerRef.current.removeEventListener('mouseleave', handleMouseLeave);
+      if (mouseInteraction && container) {
+        container.removeEventListener('mousemove', handleMouseMove);
+        container.removeEventListener('mouseenter', handleMouseEnter);
+        container.removeEventListener('mouseleave', handleMouseLeave);
       }
       renderer.gl.getExtension('WEBGL_lose_context')?.loseContext();
-      containerRef.current?.removeChild(gl.canvas);
+      container?.removeChild(gl.canvas);
     };
-  }, []);
+  }, [enableRainbow, gridColor, rippleIntensity, gridSize, gridThickness, fadeDistance, vignetteStrength, glowIntensity, opacity, gridRotation, mouseInteraction, mouseInteractionRadius]);
 
   useEffect(() => {
     if (!uniformsRef.current) return;
