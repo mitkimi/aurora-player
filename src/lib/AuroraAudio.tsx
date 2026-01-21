@@ -41,6 +41,8 @@ interface Effects {
 interface Lyric {
   time: number;
   text: string;
+  type?: 'metadata' | 'lyric'; // 'metadata' for ti/ar/al/by tags, 'lyric' for timed lyrics
+  metadataType?: 'ti' | 'ar' | 'al' | 'by'; // Type of metadata
 }
 
 type Mode = 'normal' | 'effects';
@@ -131,7 +133,7 @@ const PosterOverlay: React.FC<{ poster: string; containerRef: React.RefObject<HT
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         opacity: opacity, // Animated opacity: 0 → 10% → 0
-        zIndex: 4,
+        zIndex: 3,
         pointerEvents: 'none',
         // Gradient mask for edges fading to transparent - ensure edges are completely transparent
         maskImage: 'radial-gradient(ellipse 60% 60% at center, black 40%, rgba(0,0,0,0.9) 50%, rgba(0,0,0,0.7) 60%, rgba(0,0,0,0.4) 70%, rgba(0,0,0,0.2) 80%, transparent 90%)',
@@ -216,12 +218,17 @@ const AuroraAudio: React.FC<AuroraAudioProps> = ({
   // State for lyrics
   const [parsedLyrics, setParsedLyrics] = useState<Lyric[]>([]);
   const [currentLyricIndex, setCurrentLyricIndex] = useState<number>(-1);
+  const [previousLyricIndex, setPreviousLyricIndex] = useState<number>(-1);
   
   const audioRef = useRef<HTMLAudioElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const activeLyricRef = useRef<HTMLDivElement>(null);
   const lyricsContainerRef = useRef<HTMLDivElement>(null);
   const lyricsInnerContainerRef = useRef<HTMLDivElement>(null);
+  // Refs for effects mode lyrics
+  const effectsActiveLyricRef = useRef<HTMLDivElement>(null);
+  const effectsLyricsContainerRef = useRef<HTMLDivElement>(null);
+  const effectsLyricsInnerContainerRef = useRef<HTMLDivElement>(null);
   const progressBarRef = useRef<HTMLDivElement>(null);
   const volumeSliderRef = useRef<HTMLDivElement>(null);
 
@@ -375,8 +382,32 @@ const AuroraAudio: React.FC<AuroraAudioProps> = ({
   const parseLyrics = (lrcText: string) => {
     const lines = lrcText.split('\n');
     const parsedLyrics: Lyric[] = [];
+    const metadata: Lyric[] = [];
+    let firstLyricTime = Infinity;
     
     lines.forEach(line => {
+      const trimmedLine = line.trim();
+      
+      // Parse metadata tags: [ti:...], [ar:...], [al:...], [by:...]
+      const metadataRegex = /\[(ti|ar|al|by):(.+?)\]/i;
+      const metadataMatch = trimmedLine.match(metadataRegex);
+      
+      if (metadataMatch) {
+        const [, tag, content] = metadataMatch;
+        if (content) {
+          const metadataType = tag.toLowerCase() as 'ti' | 'ar' | 'al' | 'by';
+          // Order: ti, ar, al, by
+          const order = { ti: 0, ar: 1, al: 2, by: 3 };
+          metadata.push({
+            time: order[metadataType],
+            text: content,
+            type: 'metadata',
+            metadataType: metadataType
+          });
+        }
+        return; // Skip metadata lines
+      }
+      
       // Match timestamp pattern [mm:ss.xx] or [mm:ss.xxx]
       const timeRegex = /\[(\d{2}):(\d{2}\.\d{2,3})\]/g;
       let match: RegExpExecArray | null;
@@ -388,14 +419,28 @@ const AuroraAudio: React.FC<AuroraAudioProps> = ({
         const lyricText = line.replace(/\[\d{2}:\d{2}\.\d{2,3}\]/g, '').trim();
         
         if (lyricText) {
-          parsedLyrics.push({ time: timeInSeconds, text: lyricText });
+          if (timeInSeconds < firstLyricTime) {
+            firstLyricTime = timeInSeconds;
+          }
+          parsedLyrics.push({ time: timeInSeconds, text: lyricText, type: 'lyric' });
         }
       }
     });
     
-    // Sort by time
-    parsedLyrics.sort((a, b) => a.time - b.time);
-    setParsedLyrics(parsedLyrics);
+    // Sort metadata by order (ti, ar, al, by)
+    metadata.sort((a, b) => a.time - b.time);
+    
+    // Calculate metadata display times (before first lyric, evenly spaced)
+    const metadataCount = metadata.length;
+    const metadataDuration = Math.min(firstLyricTime, 10); // Show metadata for up to 10 seconds before first lyric
+    metadata.forEach((meta, index) => {
+      meta.time = (index / metadataCount) * metadataDuration;
+    });
+    
+    // Combine metadata and lyrics, sort by time
+    const allLyrics = [...metadata, ...parsedLyrics];
+    allLyrics.sort((a, b) => a.time - b.time);
+    setParsedLyrics(allLyrics);
   };
   
   // Effect to handle track changes
@@ -431,26 +476,50 @@ const AuroraAudio: React.FC<AuroraAudioProps> = ({
   // Update current lyric based on playback time
   useEffect(() => {
     if (parsedLyrics.length > 0) {
-      const currentIndex = parsedLyrics.findIndex((lyric, index) => {
-        const nextLyric = parsedLyrics[index + 1];
-        return currentTime >= lyric.time && (!nextLyric || currentTime < nextLyric.time);
-      });
+      // Find the first lyric (non-metadata) time
+      const firstLyric = parsedLyrics.find(l => l.type !== 'metadata');
+      const firstLyricTime = firstLyric ? firstLyric.time : 0;
       
-      if (currentIndex !== -1) {
-        setCurrentLyricIndex(currentIndex);
+      // If before first lyric, show metadata sequentially
+      if (currentTime < firstLyricTime) {
+        const metadataLyrics = parsedLyrics.filter(l => l.type === 'metadata');
+        const currentMetaIndex = metadataLyrics.findIndex((meta, index) => {
+          const nextMeta = metadataLyrics[index + 1];
+          return currentTime >= meta.time && (!nextMeta || currentTime < nextMeta.time);
+        });
+        if (currentMetaIndex !== -1) {
+          const actualIndex = parsedLyrics.indexOf(metadataLyrics[currentMetaIndex]);
+          setPreviousLyricIndex(currentLyricIndex);
+          setCurrentLyricIndex(actualIndex);
+        } else if (metadataLyrics.length > 0 && currentTime < metadataLyrics[0].time) {
+          setPreviousLyricIndex(currentLyricIndex);
+          setCurrentLyricIndex(-1);
+        }
       } else {
-        // Check if we're before the first lyric
-        if (parsedLyrics.length > 0 && currentTime < parsedLyrics[0].time) {
-          setCurrentLyricIndex(-1); // Show no lyric before first
+        // Show timed lyrics
+        const currentIndex = parsedLyrics.findIndex((lyric, index) => {
+          const nextLyric = parsedLyrics[index + 1];
+          return currentTime >= lyric.time && (!nextLyric || currentTime < nextLyric.time);
+        });
+        
+        if (currentIndex !== -1) {
+          setPreviousLyricIndex(currentLyricIndex);
+          setCurrentLyricIndex(currentIndex);
+        } else {
+          setPreviousLyricIndex(currentLyricIndex);
+          setCurrentLyricIndex(-1);
         }
       }
     } else {
+      setPreviousLyricIndex(currentLyricIndex);
       setCurrentLyricIndex(-1);
     }
-  }, [currentTime, parsedLyrics]);
+  }, [currentTime, parsedLyrics, currentLyricIndex]);
 
-  // Update padding based on container height for landscape mode
+  // Update padding based on container height for landscape mode (normal mode)
   useEffect(() => {
+    if (mode !== 'normal') return;
+    
     const updatePadding = () => {
       if (!lyricsContainerRef.current || !lyricsInnerContainerRef.current) return;
       
@@ -494,11 +563,54 @@ const AuroraAudio: React.FC<AuroraAudioProps> = ({
     return () => {
       clearTimeout(timeoutId);
     };
-  }, [isLandscape, parsedLyrics.length]);
+  }, [isLandscape, parsedLyrics.length, mode]);
 
-  // Scroll to current lyric with smooth behavior
+  // Update padding for effects mode lyrics (always center aligned)
   useEffect(() => {
-    if (currentLyricIndex >= 0 && activeLyricRef.current && lyricsContainerRef.current) {
+    if (mode !== 'effects' || (effects.lyrics !== 'scrolling' && effects.lyrics !== 'Scrolling')) return;
+    
+    const updatePadding = () => {
+      if (!effectsLyricsContainerRef.current || !effectsLyricsInnerContainerRef.current) return;
+      
+      const container = effectsLyricsContainerRef.current;
+      const innerContainer = effectsLyricsInnerContainerRef.current;
+      
+      // Get the fixed container height (not scrollHeight)
+      const containerHeight = container.clientHeight;
+      
+      // Always center align in effects mode
+      const paddingValue = containerHeight / 2;
+      innerContainer.style.paddingTop = `${paddingValue}px`;
+      innerContainer.style.paddingBottom = `${paddingValue}px`;
+      
+      // Ensure inner container height doesn't affect external layout
+      innerContainer.style.height = 'auto';
+      innerContainer.style.maxHeight = 'none';
+    };
+
+    // Initial update with a small delay to ensure DOM is ready
+    const timeoutId = setTimeout(updatePadding, 0);
+
+    // Watch for container size changes
+    const container = effectsLyricsContainerRef.current;
+    if (container) {
+      const resizeObserver = new ResizeObserver(updatePadding);
+      resizeObserver.observe(container);
+      
+      return () => {
+        clearTimeout(timeoutId);
+        resizeObserver.disconnect();
+      };
+    }
+    
+    return () => {
+      clearTimeout(timeoutId);
+    };
+  }, [parsedLyrics.length, mode, effects.lyrics]);
+
+  // Scroll to current lyric with smooth behavior (normal mode)
+  useEffect(() => {
+    if (mode === 'normal' && currentLyricIndex >= 0 && activeLyricRef.current && lyricsContainerRef.current) {
       const activeElement = activeLyricRef.current;
       const container = lyricsContainerRef.current;
       
@@ -522,7 +634,25 @@ const AuroraAudio: React.FC<AuroraAudioProps> = ({
         });
       }
     }
-  }, [currentLyricIndex, isLandscape]);
+  }, [currentLyricIndex, isLandscape, mode]);
+
+  // Scroll to current lyric with smooth behavior (effects mode - always center aligned)
+  useEffect(() => {
+    if (mode === 'effects' && (effects.lyrics === 'scrolling' || effects.lyrics === 'Scrolling') && currentLyricIndex >= 0 && effectsActiveLyricRef.current && effectsLyricsContainerRef.current) {
+      const activeElement = effectsActiveLyricRef.current;
+      const container = effectsLyricsContainerRef.current;
+      
+      // Always center current lyric vertically (like landscape mode in normal)
+      const containerHeight = container.clientHeight;
+      const activeElementTop = activeElement.offsetTop;
+      const activeElementHeight = activeElement.offsetHeight;
+      const scrollPosition = activeElementTop - (containerHeight / 2) + (activeElementHeight / 2);
+      container.scrollTo({
+        top: scrollPosition,
+        behavior: 'smooth'
+      });
+    }
+  }, [currentLyricIndex, mode, effects.lyrics]);
   
 
   
@@ -798,7 +928,7 @@ const AuroraAudio: React.FC<AuroraAudioProps> = ({
   }
   
   const positionClass = fullpage ? 'fullpage' : 'regular';
-  const playerClass = `aurora-audio aurora-audio--${positionClass} aurora-audio--${mode} aurora-audio--bg-${effects.background} aurora-audio--cover-${effects.cover} aurora-audio--lyrics-${effects.lyrics} aurora-audio--handle-${effects.handle}${isLoading ? ' aurora-audio--loading' : ''}`;
+  const playerClass = `aurora-audio aurora-audio--${positionClass} aurora-audio--${mode} aurora-audio--bg-${effects.background} aurora-audio--cover-${effects.cover} aurora-audio--lyrics-${effects.lyrics} aurora-audio--handle-${effects.handle}${isLoading ? ' aurora-audio--loading' : ''}${isPlaying ? ' aurora-audio--playing' : ''}`;
 
   // Determine layout based on presence of lyrics and container dimensions
   const hasLyrics = !!currentTrack.lyrics;
@@ -839,7 +969,7 @@ const AuroraAudio: React.FC<AuroraAudioProps> = ({
         <>
           {/* Aurora background effect */}
           {effects.background === 'Aurora' && (
-            <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 1 }}>
+            <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 1, opacity: 0.7 }}>
               <Aurora
                 colorStops={["#7cff67","#B19EEF","#5227FF"]}
                 blend={0.5}
@@ -851,21 +981,21 @@ const AuroraAudio: React.FC<AuroraAudioProps> = ({
           
           {/* Lightning background effect */}
           {effects.background === 'Lightning' && (
-            <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 1 }}>
+            <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 1, opacity: 0.7 }}>
               <Lightning />
             </div>
           )}
           
           {/* Threads background effect */}
           {effects.background === 'Threads' && (
-            <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 1 }}>
+            <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 1, opacity: 0.7 }}>
               <Threads />
             </div>
           )}
           
           {/* RippleGrid background effect */}
           {effects.background === 'RippleGrid' && (
-            <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 1 }}>
+            <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 1, opacity: 0.7 }}>
               <RippleGrid
                 enableRainbow={false}
                 gridColor="#ffffff"
@@ -881,7 +1011,7 @@ const AuroraAudio: React.FC<AuroraAudioProps> = ({
           
           {/* Orb background effect */}
           {effects.background === 'Orb' && (
-            <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 1 }}>
+            <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 1, opacity: 0.7 }}>
               <Orb
                 hoverIntensity={2}
                 rotateOnHover={true}
@@ -894,7 +1024,7 @@ const AuroraAudio: React.FC<AuroraAudioProps> = ({
           
           {/* Prism background effect */}
           {effects.background === 'Prism' && (
-            <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 1 }}>
+            <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 1, opacity: 0.7 }}>
               <Prism
                 animationType="rotate"
                 timeScale={0.5}
@@ -913,12 +1043,20 @@ const AuroraAudio: React.FC<AuroraAudioProps> = ({
       
       {/* Blur layer for effects mode - covers z-index 1 background effects */}
       {mode === 'effects' && effects.cover && effects.cover !== 'none' && (
-        <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 2, backdropFilter: 'blur(5px)' }} />
+        <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 2, backdropFilter: 'blur(8px)' }} />
       )}
       
-      {/* Cover effects for effects mode */}
+      {/* Poster layer for effects mode - z-index 3 */}
+      {mode === 'effects' && currentTrack.poster && (
+        <PosterOverlay 
+          poster={currentTrack.poster}
+          containerRef={containerRef}
+        />
+      )}
+      
+      {/* Cover effects for effects mode - z-index 4 */}
       {mode === 'effects' && effects.cover && effects.cover !== 'none' && (
-        <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 3, overflow: 'hidden', borderRadius: 'inherit' }}>
+        <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 4, overflow: 'hidden', borderRadius: 'inherit' }}>
           {/* Smoke cover effect */}
           {effects.cover === 'Smoke' && (
             <Smoke speed={0.5} opacity={1.0} intensity={1.0} emitterCount={15} />
@@ -931,12 +1069,102 @@ const AuroraAudio: React.FC<AuroraAudioProps> = ({
         </div>
       )}
       
-      {/* Poster layer for effects mode - z-index 4 */}
-      {mode === 'effects' && currentTrack.poster && (
-        <PosterOverlay 
-          poster={currentTrack.poster}
-          containerRef={containerRef}
-        />
+      {/* Lyrics layer for effects mode - z-index 5 */}
+      {/* Scrolling lyrics */}
+      {mode === 'effects' && (effects.lyrics === 'scrolling' || effects.lyrics === 'Scrolling') && hasLyrics && (
+        <div 
+          className="aurora-audio__lyrics aurora-audio__lyrics--effects"
+          ref={effectsLyricsContainerRef}
+          style={{ zIndex: 5, position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none' }}
+        >
+          <div className="aurora-audio__lyrics-container aurora-audio__lyrics-container--effects" ref={effectsLyricsInnerContainerRef}>
+            {parsedLyrics.map((line, index) => {
+              // Calculate animation based on lyrics count and position
+              const getAnimationType = (lyricIndex: number, totalLines: number, isActive: boolean): string | undefined => {
+                if (!isActive) return undefined;
+                
+                if (totalLines === 1) {
+                  // Single line: fade-up on enter
+                  return 'fade-up';
+                }
+                
+                const isOdd = totalLines % 2 === 1;
+                const midPoint = isOdd ? Math.floor(totalLines / 2) : totalLines / 2 - 0.5;
+                
+                if (isOdd) {
+                  // Odd number of lines: middle line follows upper half
+                  if (lyricIndex <= midPoint) {
+                    return 'fade-down';
+                  } else {
+                    return 'fade-up';
+                  }
+                } else {
+                  // Even number of lines: split at middle
+                  if (lyricIndex < midPoint) {
+                    return 'fade-down';
+                  } else {
+                    return 'fade-up';
+                  }
+                }
+              };
+              
+              const animationType = getAnimationType(index, parsedLyrics.length, index === currentLyricIndex);
+              
+              return (
+                <div 
+                  key={index} 
+                  className={`aurora-audio__lyric-line ${index === currentLyricIndex ? 'aurora-audio__lyric-line--active' : ''}`}
+                  ref={index === currentLyricIndex ? effectsActiveLyricRef : null}
+                  data-aos={animationType}
+                  data-aos-duration="800"
+                  data-aos-easing="ease-in-out"
+                  data-aos-once="false"
+                >
+                  {line.text.split('').map((char, charIndex) => (
+                    <span 
+                      key={charIndex} 
+                      className="aurora-audio__lyric-line-char"
+                      style={{ 
+                        animationDelay: `${charIndex * 0.1}s` // Sequential delay for wave effect (increased for more visible effect)
+                      }}
+                    >
+                      {char === ' ' ? '\u00A0' : char}
+                    </span>
+                  ))}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+      
+      {/* Floating lyrics - single line, large text, centered */}
+      {mode === 'effects' && (effects.lyrics === 'floating' || effects.lyrics === 'Floating') && hasLyrics && currentLyricIndex >= 0 && (
+        <div 
+          className="aurora-audio__lyrics aurora-audio__lyrics--floating"
+          style={{ zIndex: 5, position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+        >
+          <div 
+            className="aurora-audio__lyric-line aurora-audio__lyric-line--floating"
+            data-aos="fade-up"
+            data-aos-duration="800"
+            data-aos-easing="ease-in-out"
+            data-aos-once="false"
+            key={currentLyricIndex}
+          >
+            {parsedLyrics[currentLyricIndex].text.split('').map((char, charIndex) => (
+              <span 
+                key={charIndex} 
+                className="aurora-audio__lyric-line-char"
+                style={{ 
+                  animationDelay: `${charIndex * 0.1}s` // Sequential delay for wave effect (increased for more visible effect)
+                }}
+              >
+                {char === ' ' ? '\u00A0' : char}
+              </span>
+            ))}
+          </div>
+        </div>
       )}
       
       {/* Semi-transparent poster overlay in normal mode */}
@@ -984,15 +1212,62 @@ const AuroraAudio: React.FC<AuroraAudioProps> = ({
             {hasLyrics && (
               <div className="aurora-audio__lyrics" ref={lyricsContainerRef}>
                 <div className="aurora-audio__lyrics-container" ref={lyricsInnerContainerRef}>
-                  {parsedLyrics.map((line, index) => (
-                    <div 
-                      key={index} 
-                      className={`aurora-audio__lyric-line ${index === currentLyricIndex ? 'aurora-audio__lyric-line--active' : ''}`}
-                      ref={index === currentLyricIndex ? activeLyricRef : null}
-                    >
-                      {line.text}
-                    </div>
-                  ))}
+                  {parsedLyrics.map((line, index) => {
+                    // Calculate animation based on lyrics count and position
+                    const getAnimationType = (lyricIndex: number, totalLines: number, isActive: boolean): string | undefined => {
+                      if (!isActive) return undefined;
+                      
+                      if (totalLines === 1) {
+                        // Single line: fade-up on enter
+                        return 'fade-up';
+                      }
+                      
+                      const isOdd = totalLines % 2 === 1;
+                      const midPoint = isOdd ? Math.floor(totalLines / 2) : totalLines / 2 - 0.5;
+                      
+                      if (isOdd) {
+                        // Odd number of lines: middle line follows upper half
+                        if (lyricIndex <= midPoint) {
+                          return 'fade-down';
+                        } else {
+                          return 'fade-up';
+                        }
+                      } else {
+                        // Even number of lines: split at middle
+                        if (lyricIndex < midPoint) {
+                          return 'fade-down';
+                        } else {
+                          return 'fade-up';
+                        }
+                      }
+                    };
+                    
+                    const animationType = getAnimationType(index, parsedLyrics.length, index === currentLyricIndex);
+                    
+                    return (
+                      <div 
+                        key={index} 
+                        className={`aurora-audio__lyric-line ${index === currentLyricIndex ? 'aurora-audio__lyric-line--active' : ''}`}
+                        ref={index === currentLyricIndex ? activeLyricRef : null}
+                        data-aos={animationType}
+                        data-aos-duration="800"
+                        data-aos-easing="ease-in-out"
+                        data-aos-once="false"
+                      >
+                        {line.text.split('').map((char, charIndex) => (
+                          <span 
+                            key={charIndex} 
+                            className="aurora-audio__lyric-line-char"
+                            style={{ 
+                              animationDelay: `${charIndex * 0.1}s` // Sequential delay for wave effect (increased for more visible effect)
+                            }}
+                          >
+                            {char === ' ' ? '\u00A0' : char}
+                          </span>
+                        ))}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}

@@ -24,7 +24,8 @@
   }
 
   &--normal {
-    // Normal mode specific styles
+    // Normal mode specific styles - placeholder for future styles
+    display: block;
   }
 
   &__container {
@@ -255,6 +256,80 @@
         text-align: center;
         padding: 0 10px;
       }
+      
+      // Effects mode - always center aligned
+      &--effects {
+        align-items: center;
+        text-align: center;
+        padding: 0 10px;
+      }
+    }
+    
+    // Effects mode lyrics styles
+    &--effects {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      overflow-y: auto;
+      overflow-x: hidden;
+      contain: strict;
+      isolation: isolate;
+      will-change: scroll-position;
+      color: #ffffff; // Ensure text is visible
+      
+      // Gradient fade at top and bottom (200px smooth fade)
+      mask-image: linear-gradient(
+        to bottom,
+        transparent 0px,
+        black 200px,
+        black calc(100% - 200px),
+        transparent 100%
+      );
+      -webkit-mask-image: linear-gradient(
+        to bottom,
+        transparent 0px,
+        black 200px,
+        black calc(100% - 200px),
+        transparent 100%
+      );
+      
+      &::-webkit-scrollbar {
+        display: none;
+      }
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+    
+    // Floating lyrics styles
+    &--floating {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+      color: rgba(255, 255, 255, 0.6); // 60% white
+      
+      // Gradient fade at top and bottom (200px smooth fade)
+      mask-image: linear-gradient(
+        to bottom,
+        transparent 0px,
+        black 200px,
+        black calc(100% - 200px),
+        transparent 100%
+      );
+      -webkit-mask-image: linear-gradient(
+        to bottom,
+        transparent 0px,
+        black 200px,
+        black calc(100% - 200px),
+        transparent 100%
+      );
     }
   }
 
@@ -264,10 +339,70 @@
     padding: 4px 0;
     transition: font-size 0.3s ease, color 0.3s ease;
     line-height: 1.5;
+    display: inline-block; // Allow character-by-character animation
+    
+    // Character wrapper for individual character animation
+    &-char {
+      display: inline-block;
+    }
     
     &--active {
       font-size: 24px;
-      color: #ffffff; // 100% white
+      color: rgba(255, 255, 255, 0.8); // 80% white
+      font-weight: 700; // Bold
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', '微软雅黑', 'PingFang SC', 'Hiragino Sans GB', 'Helvetica Neue', Arial, sans-serif; // Sans-serif font
+      max-width: 70%; // Maximum width 70%
+      margin: 0 auto; // Center align
+    }
+    
+    // Effects mode - larger font sizes
+    .aurora-audio--effects & {
+      font-size: 24px; // Base size in effects mode
+      
+      &--active {
+        font-size: 28px; // Active lyric in effects mode
+        color: rgba(255, 255, 255, 0.8); // 80% white
+        font-weight: 700; // Bold
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', '微软雅黑', 'PingFang SC', 'Hiragino Sans GB', 'Helvetica Neue', Arial, sans-serif; // Sans-serif font
+        max-width: 70%; // Maximum width 70%
+        margin: 0 auto; // Center align
+      }
+    }
+    
+    // Floating mode - very large text, 60% white
+    // Use higher specificity to override base styles
+    &--floating,
+    .aurora-audio--effects &--floating {
+      font-size: 72px !important; // Very large text
+      color: rgba(255, 255, 255, 0.6) !important; // 60% white transparent
+      font-weight: 600 !important; // Medium bold
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', '微软雅黑', 'PingFang SC', 'Hiragino Sans GB', 'Helvetica Neue', Arial, sans-serif !important; // Sans-serif font
+      text-align: center;
+      line-height: 1.2;
+      padding: 0;
+      margin: 0;
+      max-width: 70% !important; // Maximum width 70%
+      transition: opacity 0.3s ease;
+      display: inline-block; // Allow character-by-character animation
+      
+      .aurora-audio__lyric-line-char {
+        display: inline-block;
+        
+        @keyframes char-float-floating {
+          0%, 100% {
+            transform: translateY(0px);
+          }
+          50% {
+            transform: translateY(-8px);
+          }
+        }
+      }
+      
+      // Animation only when playing - each character floats sequentially
+      .aurora-audio--playing & .aurora-audio__lyric-line-char {
+        animation: char-float-floating 3s ease-in-out infinite !important;
+        // animation-delay is set inline via style prop for sequential effect
+      }
     }
   }
 
@@ -515,7 +650,7 @@
     opacity: 0.08; // 8% transparency
     z-index: 1;
     pointer-events: none; // Allow interactions to pass through
-    filter: blur(5px); // Add 5px blur as requested
+    // filter: blur(5px); // Add 5px blur as requested
   }
 }
 
