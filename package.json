@@ -1,6 +1,6 @@
 {
   "name": "aurora-player",
-  "version": "1.0.0",
+  "version": "1.0.16",
   "description": "A modern audio and video player component with Aurora effects and additional features",
   "main": "dist/index.js",
   "scripts": {
