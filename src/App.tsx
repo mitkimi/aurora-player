@@ -140,25 +140,11 @@ function App() {
                 lyrics: "/Daoko,米津玄師 - 打上花火.lrc"
               },
               {
-                name: "Aurora Dreams",
-                author: "Cosmic Sound",
-                url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
+                name: "ひとり上手",
+                author: "中島みゆき",
+                url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3", // Placeholder URL - replace with actual audio file
                 poster: "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?q=80&w=200&h=200&auto=format&fit=crop",
-                lyrics: "/sample-lyrics.lrc"
-              },
-              {
-                name: "Stellar Journey",
-                author: "Galaxy Music",
-                url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3",
-                poster: "https://images.unsplash.com/photo-1507838153414-b4b713384a76?q=80&w=200&h=200&auto=format&fit=crop",
-                lyrics: "/sample-lyrics.lrc"
-              },
-              {
-                name: "Cosmic Waves",
-                author: "Universe Sounds",
-                url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3",
-                poster: "https://images.unsplash.com/photo-1493246507139-91e8fad9978e?q=80&w=200&h=200&auto=format&fit=crop",
-                lyrics: "/sample-lyrics.lrc"
+                lyrics: "/中島みゆき - ひとり上手.lrc"
               }
             ]}
             mode={mode}

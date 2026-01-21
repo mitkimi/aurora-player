@@ -9,6 +9,9 @@ import volumeMuteIcon from './images/volume-mute.svg';
 import volumeLowIcon from './images/volume-0.svg';
 import volumeMediumIcon from './images/volume-1.svg';
 import volumeHighIcon from './images/volume-2.svg';
+import loopNoneIcon from './images/loop-none.svg';
+import loopSingleIcon from './images/loop-single.svg';
+import loopAllIcon from './images/loop.svg';
 
 // Import background effects
 import Aurora from './backgrounds/Aurora';
@@ -21,6 +24,87 @@ import Prism from './backgrounds/Prism';
 // Import cover effects
 import Smoke from './covers/Smoke';
 import SplashCursor from './covers/SplashCursor';
+
+// Utility function to split text into balanced lines
+const splitIntoBalancedLines = (text: string, maxLines: number = 2): string[] => {
+  if (!text || maxLines <= 1) return [text];
+  
+  const words = text.split(' ');
+  if (words.length <= 1) return [text];
+  
+  // If we only need 2 lines, use a simple split strategy
+  if (maxLines === 2) {
+    // Calculate approximate midpoint in characters (not words)
+    const totalLength = text.length;
+    const targetLength = Math.floor(totalLength / 2);
+    
+    let firstLine = '';
+    let secondLine = '';
+    
+    // Try to find the closest word boundary to the midpoint
+    let currentLength = 0;
+    let splitIndex = 0;
+    
+    for (let i = 0; i < words.length; i++) {
+      const wordWithSpace = i === words.length - 1 ? words[i] : words[i] + ' ';
+      if (currentLength + wordWithSpace.length >= targetLength && i > 0) {
+        splitIndex = i;
+        break;
+      }
+      currentLength += wordWithSpace.length;
+    }
+    
+    // If no suitable split point was found, split at the middle word
+    if (splitIndex === 0 && words.length > 1) {
+      splitIndex = Math.floor(words.length / 2);
+    }
+    
+    const firstWords = words.slice(0, splitIndex);
+    const secondWords = words.slice(splitIndex);
+    
+    firstLine = firstWords.join(' ').trim();
+    secondLine = secondWords.join(' ').trim();
+    
+    // Make sure neither line is empty
+    if (!firstLine) {
+      return [secondLine];
+    }
+    if (!secondLine) {
+      return [firstLine];
+    }
+    
+    return [firstLine, secondLine];
+  }
+  
+  // For more than 2 lines, use a more complex algorithm
+  const lines: string[] = [];
+  const targetCharsPerLine = Math.ceil(text.length / maxLines);
+  
+  let currentLine = '';
+  
+  for (const word of words) {
+    const testLine = currentLine ? `${currentLine} ${word}` : word;
+    
+    if (testLine.length <= targetCharsPerLine || currentLine === '') {
+      currentLine = testLine;
+    } else {
+      lines.push(currentLine);
+      currentLine = word;
+      
+      if (lines.length === maxLines - 1) {
+        // For the last line, add all remaining words
+        lines.push([...currentLine.split(' '), ...words.slice(words.indexOf(word) + 1)].join(' '));
+        break;
+      }
+    }
+  }
+  
+  if (currentLine) {
+    lines.push(currentLine);
+  }
+  
+  return lines;
+};
 
 interface Track {
   name?: string;
@@ -49,7 +133,7 @@ type Mode = 'normal' | 'effects';
 type LoopMode = boolean | 'single' | 'list';
 
 // Poster overlay component for effects mode
-const PosterOverlay: React.FC<{ poster: string; containerRef: React.RefObject<HTMLDivElement> }> = ({ poster, containerRef }) => {
+const PosterOverlay: React.FC<{ poster: string; containerRef: React.RefObject<HTMLDivElement>; isPlaying: boolean }> = ({ poster, containerRef, isPlaying }) => {
   const posterRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState<number>(0);
   const [opacity, setOpacity] = useState<number>(0); // Start at 0
@@ -81,9 +165,9 @@ const PosterOverlay: React.FC<{ poster: string; containerRef: React.RefObject<HT
     return () => window.removeEventListener('resize', updateSize);
   }, [containerRef]);
 
-  // Opacity animation: 0 → 20% → 0 every 60 seconds
+  // Opacity animation: 0 → 20% → 0 every 60 seconds - only runs when playing
   useEffect(() => {
-    if (!posterRef.current) return;
+    if (!posterRef.current || !isPlaying) return;
 
     let currentTarget = 0.2; // Start by going to 20%
     const duration = 60000; // 60 seconds per cycle
@@ -91,7 +175,7 @@ const PosterOverlay: React.FC<{ poster: string; containerRef: React.RefObject<HT
     let timeoutId: NodeJS.Timeout | null = null;
 
     const animateOpacity = () => {
-      if (posterRef.current) {
+      if (posterRef.current && isPlaying) {
         // Smooth transition to target opacity
         posterRef.current.style.transition = `opacity ${transitionDuration}ms ease-in-out`;
         setOpacity(currentTarget);
@@ -115,7 +199,7 @@ const PosterOverlay: React.FC<{ poster: string; containerRef: React.RefObject<HT
         clearTimeout(timeoutId);
       }
     };
-  }, []);
+  }, [isPlaying]);
 
   return (
     <div 
@@ -213,6 +297,8 @@ const AuroraAudio: React.FC<AuroraAudioProps> = ({
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [loadingPosition, setLoadingPosition] = useState<number>(0);
+  // Use local state for loop mode to allow UI interaction
+  const [localLoop, setLocalLoop] = useState<LoopMode>(loop);
   const hideControlsTimerRef = useRef<NodeJS.Timeout | null>(null);
   
   // State for lyrics
@@ -253,20 +339,26 @@ const AuroraAudio: React.FC<AuroraAudioProps> = ({
     };
 
     const handleEnded = () => {
-      // Handle list loop: if loop is 'list' or true (with playlist), go to next track
+      // Handle list playback: if playlist exists and has multiple tracks, go to next track
       if (playlist && playlist.length > 1) {
-        const isListLoop = loop === 'list' || (loop === true && playlist.length > 1);
-        if (isListLoop) {
-          // List loop: go to next track
+        // Check if we should go to the next track (list mode)
+        const shouldGoToNext = localLoop === 'list' || localLoop === true || (localLoop === false && currentTrackIndex < playlist.length - 1);
+        
+        if (shouldGoToNext) {
           if (currentTrackIndex < playlist.length - 1) {
-            setCurrentTrackIndex(prev => prev + 1);
-          } else {
-            // Loop back to first track
+            // Move to next track and start playing
+            setCurrentTrackIndex(prev => {
+              const newIndex = prev + 1;
+              // After changing track, we'll use the useEffect below to start playback
+              return newIndex;
+            });
+          } else if (localLoop === 'list' || localLoop === true) {
+            // If we reached the end and loop is enabled, go back to first track
             setCurrentTrackIndex(0);
           }
         }
-        // If loop is false or 'single', do nothing (single loop is handled by audio.loop)
       }
+      // If loop is 'single', do nothing (single loop is handled by audio.loop)
     };
 
     if (audio) {
@@ -280,7 +372,26 @@ const AuroraAudio: React.FC<AuroraAudioProps> = ({
         audio.removeEventListener('ended', handleEnded);
       };
     }
-  }, [loop, playlist, currentTrackIndex]);
+  }, [localLoop, playlist, currentTrackIndex]);
+  
+  // Effect to start playback when track changes and player was previously playing
+  useEffect(() => {
+    // Only start playback if the player was playing before the track change
+    if (isPlaying && audioRef.current) {
+      // Use a small delay to ensure the new track is loaded
+      const timer = setTimeout(() => {
+        const audio = audioRef.current;
+        if (audio) {
+          audio.play().catch(error => {
+            console.error('Error auto-playing next track:', error);
+          });
+          setIsPlaying(true);
+        }
+      }, 100); // Small delay to ensure track has loaded
+      
+      return () => clearTimeout(timer);
+    }
+  }, [currentTrackIndex]);
 
   // Effect for rotation animation
   useEffect(() => {
@@ -352,10 +463,10 @@ const AuroraAudio: React.FC<AuroraAudioProps> = ({
       // Set audio element loop based on loop mode
       // true or 'single' means single track loop, 'list' means playlist loop
       // false means no loop
-      const shouldLoop = loop === true || loop === 'single';
+      const shouldLoop = localLoop === true || localLoop === 'single';
       audioRef.current.loop = shouldLoop;
     }
-  }, [loop]);
+  }, [localLoop]);
   
   // Load lyrics if available
   useEffect(() => {
@@ -384,14 +495,14 @@ const AuroraAudio: React.FC<AuroraAudioProps> = ({
     const parsedLyrics: Lyric[] = [];
     const metadata: Lyric[] = [];
     let firstLyricTime = Infinity;
-    
+      
     lines.forEach(line => {
       const trimmedLine = line.trim();
-      
+        
       // Parse metadata tags: [ti:...], [ar:...], [al:...], [by:...]
       const metadataRegex = /\[(ti|ar|al|by):(.+?)\]/i;
       const metadataMatch = trimmedLine.match(metadataRegex);
-      
+        
       if (metadataMatch) {
         const [, tag, content] = metadataMatch;
         if (content) {
@@ -407,17 +518,17 @@ const AuroraAudio: React.FC<AuroraAudioProps> = ({
         }
         return; // Skip metadata lines
       }
-      
+        
       // Match timestamp pattern [mm:ss.xx] or [mm:ss.xxx]
       const timeRegex = /\[(\d{2}):(\d{2}\.\d{2,3})\]/g;
       let match: RegExpExecArray | null;
-      
+        
       while ((match = timeRegex.exec(line)) !== null) {
         const minutes = parseInt(match[1]);
         const seconds = parseFloat(match[2]);
         const timeInSeconds = minutes * 60 + seconds;
         const lyricText = line.replace(/\[\d{2}:\d{2}\.\d{2,3}\]/g, '').trim();
-        
+          
         if (lyricText) {
           if (timeInSeconds < firstLyricTime) {
             firstLyricTime = timeInSeconds;
@@ -426,17 +537,53 @@ const AuroraAudio: React.FC<AuroraAudioProps> = ({
         }
       }
     });
-    
-    // Sort metadata by order (ti, ar, al, by)
+      
+    // If no metadata was found in the LRC file, add track name and author from props
+    if (metadata.length === 0) {
+      if (currentTrack.name) {
+        metadata.push({
+          time: 0, // Start at 0 seconds
+          text: currentTrack.name,
+          type: 'metadata',
+          metadataType: 'ti'
+        });
+      }
+      if (currentTrack.author) {
+        metadata.push({
+          time: 1, // Show after title, at 1 second
+          text: `@${currentTrack.author}`, // Prefix with @ like in the UI
+          type: 'metadata',
+          metadataType: 'ar'
+        });
+      }
+    }
+      
+    // Sort metadata by order (ti, ar, al, by) when it exists in the file
+    // For manually added metadata, we'll sort by time
     metadata.sort((a, b) => a.time - b.time);
-    
+      
     // Calculate metadata display times (before first lyric, evenly spaced)
     const metadataCount = metadata.length;
-    const metadataDuration = Math.min(firstLyricTime, 10); // Show metadata for up to 10 seconds before first lyric
-    metadata.forEach((meta, index) => {
-      meta.time = (index / metadataCount) * metadataDuration;
-    });
-    
+    const metadataDuration = Math.min(firstLyricTime, 20); // Show metadata for up to 20 seconds before first lyric
+      
+    // Adjust times proportionally if we have metadata
+    if (metadataCount > 0) {
+      metadata.forEach((meta, index) => {
+        // If times were set manually (like 0 for title, 1 for author), keep them
+        // Otherwise, distribute evenly
+        if (meta.time === 0 && index === 0 && metadataCount > 1) {
+          // First metadata item keeps time 0
+          meta.time = 0;
+        } else if (meta.time === 1 && index === 1 && metadataCount > 1) {
+          // Second metadata item keeps time 1
+          meta.time = 1;
+        } else {
+          // Distribute remaining metadata items evenly
+          meta.time = (index / metadataCount) * metadataDuration;
+        }
+      });
+    }
+      
     // Combine metadata and lyrics, sort by time
     const allLyrics = [...metadata, ...parsedLyrics];
     allLyrics.sort((a, b) => a.time - b.time);
@@ -855,6 +1002,30 @@ const AuroraAudio: React.FC<AuroraAudioProps> = ({
     handleVolumeSliderDrag(e.nativeEvent);
   };
   
+  // Function to cycle through loop modes: none -> single -> list -> none
+  const cycleLoopMode = () => {
+    setLocalLoop(prev => {
+      if (prev === false) {
+        return 'single';
+      } else if (prev === 'single' || prev === true) {
+        return 'list';
+      } else {
+        return false;
+      }
+    });
+  };
+  
+  // Function to get the appropriate icon based on the current loop mode
+  const getLoopIcon = (): string => {
+    if (localLoop === 'single' || localLoop === true) {
+      return loopSingleIcon;
+    } else if (localLoop === 'list') {
+      return loopAllIcon;
+    } else {
+      return loopNoneIcon;
+    }
+  };
+  
 
 
   const formatTime = (time: number) => {
@@ -1041,8 +1212,8 @@ const AuroraAudio: React.FC<AuroraAudioProps> = ({
         </>
       )}
       
-      {/* Blur layer for effects mode - covers z-index 1 background effects */}
-      {mode === 'effects' && effects.cover && effects.cover !== 'none' && (
+      {/* Blur layer for effects mode - covers z-index 1 background effects - always present regardless of cover setting */}
+      {mode === 'effects' && (
         <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 2, backdropFilter: 'blur(8px)' }} />
       )}
       
@@ -1051,6 +1222,7 @@ const AuroraAudio: React.FC<AuroraAudioProps> = ({
         <PosterOverlay 
           poster={currentTrack.poster}
           containerRef={containerRef}
+          isPlaying={isPlaying}
         />
       )}
       
@@ -1079,58 +1251,36 @@ const AuroraAudio: React.FC<AuroraAudioProps> = ({
         >
           <div className="aurora-audio__lyrics-container aurora-audio__lyrics-container--effects" ref={effectsLyricsInnerContainerRef}>
             {parsedLyrics.map((line, index) => {
-              // Calculate animation based on lyrics count and position
-              const getAnimationType = (lyricIndex: number, totalLines: number, isActive: boolean): string | undefined => {
-                if (!isActive) return undefined;
-                
-                if (totalLines === 1) {
-                  // Single line: fade-up on enter
-                  return 'fade-up';
-                }
-                
-                const isOdd = totalLines % 2 === 1;
-                const midPoint = isOdd ? Math.floor(totalLines / 2) : totalLines / 2 - 0.5;
-                
-                if (isOdd) {
-                  // Odd number of lines: middle line follows upper half
-                  if (lyricIndex <= midPoint) {
-                    return 'fade-down';
-                  } else {
-                    return 'fade-up';
-                  }
-                } else {
-                  // Even number of lines: split at middle
-                  if (lyricIndex < midPoint) {
-                    return 'fade-down';
-                  } else {
-                    return 'fade-up';
-                  }
-                }
-              };
-              
-              const animationType = getAnimationType(index, parsedLyrics.length, index === currentLyricIndex);
+              // Only apply animations for floating mode
+              const animationType = (effects.lyrics === 'floating' || effects.lyrics === 'Floating') && index === currentLyricIndex ? 'fade-up' : undefined;
               
               return (
                 <div 
                   key={index} 
                   className={`aurora-audio__lyric-line ${index === currentLyricIndex ? 'aurora-audio__lyric-line--active' : ''}`}
                   ref={index === currentLyricIndex ? effectsActiveLyricRef : null}
-                  data-aos={animationType}
-                  data-aos-duration="800"
-                  data-aos-easing="ease-in-out"
-                  data-aos-once="false"
+                  { ...(animationType && {
+                    'data-aos': animationType,
+                    'data-aos-duration': "800",
+                    'data-aos-easing': "ease-in-out",
+                    'data-aos-once': "false"
+                  }) }
                 >
-                  {line.text.split('').map((char, charIndex) => (
-                    <span 
-                      key={charIndex} 
-                      className="aurora-audio__lyric-line-char"
-                      style={{ 
-                        animationDelay: `${charIndex * 0.1}s` // Sequential delay for wave effect (increased for more visible effect)
-                      }}
-                    >
-                      {char === ' ' ? '\u00A0' : char}
-                    </span>
-                  ))}
+                  {line && line.text ? splitIntoBalancedLines(line.text, 2).map((subLine, lineIndex) => (
+                    <div key={`line-${index}-${lineIndex}`} className="aurora-audio__lyric-subline">
+                      {subLine.split('').map((char, charIndex) => (
+                        <span 
+                          key={`char-${index}-${lineIndex}-${charIndex}`}
+                          className="aurora-audio__lyric-line-char"
+                          style={{ 
+                            animationDelay: `${charIndex * 0.1}s` // Sequential delay for wave effect (increased for more visible effect)
+                          }}
+                        >
+                          {char === ' ' ? '\u00A0' : char}
+                        </span>
+                      ))}
+                    </div>
+                  )) : null}
                 </div>
               );
             })}
@@ -1152,17 +1302,21 @@ const AuroraAudio: React.FC<AuroraAudioProps> = ({
             data-aos-once="false"
             key={currentLyricIndex}
           >
-            {parsedLyrics[currentLyricIndex].text.split('').map((char, charIndex) => (
-              <span 
-                key={charIndex} 
-                className="aurora-audio__lyric-line-char"
-                style={{ 
-                  animationDelay: `${charIndex * 0.1}s` // Sequential delay for wave effect (increased for more visible effect)
-                }}
-              >
-                {char === ' ' ? '\u00A0' : char}
-              </span>
-            ))}
+            {currentLyricIndex >= 0 && parsedLyrics && parsedLyrics[currentLyricIndex] && parsedLyrics[currentLyricIndex].text ? splitIntoBalancedLines(parsedLyrics[currentLyricIndex].text, 2).map((subLine, lineIndex) => (
+              <div key={`line-${currentLyricIndex}-${lineIndex}`} className="aurora-audio__lyric-subline">
+                {subLine.split('').map((char, charIndex) => (
+                  <span 
+                    key={`char-${currentLyricIndex}-${lineIndex}-${charIndex}`}
+                    className="aurora-audio__lyric-line-char"
+                    style={{ 
+                      animationDelay: `${charIndex * 0.1}s` // Sequential delay for wave effect (increased for more visible effect)
+                    }}
+                  >
+                    {char === ' ' ? '\u00A0' : char}
+                  </span>
+                ))}
+              </div>
+            )) : null}
           </div>
         </div>
       )}
@@ -1213,58 +1367,28 @@ const AuroraAudio: React.FC<AuroraAudioProps> = ({
               <div className="aurora-audio__lyrics" ref={lyricsContainerRef}>
                 <div className="aurora-audio__lyrics-container" ref={lyricsInnerContainerRef}>
                   {parsedLyrics.map((line, index) => {
-                    // Calculate animation based on lyrics count and position
-                    const getAnimationType = (lyricIndex: number, totalLines: number, isActive: boolean): string | undefined => {
-                      if (!isActive) return undefined;
-                      
-                      if (totalLines === 1) {
-                        // Single line: fade-up on enter
-                        return 'fade-up';
-                      }
-                      
-                      const isOdd = totalLines % 2 === 1;
-                      const midPoint = isOdd ? Math.floor(totalLines / 2) : totalLines / 2 - 0.5;
-                      
-                      if (isOdd) {
-                        // Odd number of lines: middle line follows upper half
-                        if (lyricIndex <= midPoint) {
-                          return 'fade-down';
-                        } else {
-                          return 'fade-up';
-                        }
-                      } else {
-                        // Even number of lines: split at middle
-                        if (lyricIndex < midPoint) {
-                          return 'fade-down';
-                        } else {
-                          return 'fade-up';
-                        }
-                      }
-                    };
-                    
-                    const animationType = getAnimationType(index, parsedLyrics.length, index === currentLyricIndex);
-                    
+                    // No animations for normal mode - only floating mode has fade effects
                     return (
                       <div 
                         key={index} 
                         className={`aurora-audio__lyric-line ${index === currentLyricIndex ? 'aurora-audio__lyric-line--active' : ''}`}
                         ref={index === currentLyricIndex ? activeLyricRef : null}
-                        data-aos={animationType}
-                        data-aos-duration="800"
-                        data-aos-easing="ease-in-out"
-                        data-aos-once="false"
                       >
-                        {line.text.split('').map((char, charIndex) => (
-                          <span 
-                            key={charIndex} 
-                            className="aurora-audio__lyric-line-char"
-                            style={{ 
-                              animationDelay: `${charIndex * 0.1}s` // Sequential delay for wave effect (increased for more visible effect)
-                            }}
-                          >
-                            {char === ' ' ? '\u00A0' : char}
-                          </span>
-                        ))}
+                        {line && line.text ? splitIntoBalancedLines(line.text, 2).map((subLine, lineIndex) => (
+                          <div key={`line-${index}-${lineIndex}`} className="aurora-audio__lyric-subline">
+                            {subLine.split('').map((char, charIndex) => (
+                              <span 
+                                key={`char-${index}-${lineIndex}-${charIndex}`}
+                                className="aurora-audio__lyric-line-char"
+                                style={{ 
+                                  animationDelay: `${charIndex * 0.1}s` // Sequential delay for wave effect (increased for more visible effect)
+                                }}
+                              >
+                                {char === ' ' ? '\u00A0' : char}
+                              </span>
+                            ))}
+                          </div>
+                        )) : null}
                       </div>
                     );
                   })}
@@ -1346,44 +1470,62 @@ const AuroraAudio: React.FC<AuroraAudioProps> = ({
               )}
             </div>
             
-            {/* Right: Volume Control */}
-            <div className="aurora-audio__volume-control-wrapper">
-              <span className="aurora-audio__volume-control-percent">
-                {isMuted ? '0%' : `${Math.round(volume * 100)}%`}
-              </span>
-              <div 
-                className="aurora-audio__volume-control-button"
-                onMouseEnter={() => setShowVolumeSlider(true)}
-                onMouseLeave={() => setShowVolumeSlider(false)}
-              >
-                <div className={`aurora-audio__volume-control-slider-inside ${showVolumeSlider ? 'visible' : ''}`}>
-                  <div 
-                    ref={volumeSliderRef}
-                    className="aurora-audio__volume-control-slider-track"
-                    onClick={handleVolumeSliderClick}
-                    onMouseDown={handleVolumeSliderMouseDown}
-                  >
-                    <div 
-                      className="aurora-audio__volume-control-slider-filled"
-                      style={{ width: `${(isMuted ? 0 : volume) * 100}%` }}
-                    ></div>
-                  </div>
-                </div>
-                <div 
-                  className="aurora-audio__volume-control-icon"
-                  onClick={toggleMute}
+            {/* Combined Volume and Loop Control */}
+            <div className="aurora-audio__volume-and-loop-wrapper">
+              {/* Loop Control Button */}
+              <div className="aurora-audio__loop-control-wrapper">
+                <button 
+                  className="aurora-audio__control-button"
+                  onClick={cycleLoopMode}
+                  title="Toggle loop mode"
                 >
                   <img 
-                    src={
-                      isMuted || volume === 0 ? volumeMuteIcon : 
-                      volume < 0.33 ? volumeLowIcon : 
-                      volume < 0.67 ? volumeMediumIcon : 
-                      volumeHighIcon
-                    } 
-                    alt="Volume" 
+                    src={getLoopIcon()} 
+                    alt={localLoop === 'single' || localLoop === true ? 'Single Loop' : localLoop === 'list' ? 'List Loop' : 'No Loop'}
                     width="16" 
                     height="16" 
                   />
+                </button>
+              </div>
+              
+              <div className="aurora-audio__volume-control-wrapper">
+                <span className={`aurora-audio__volume-control-percent ${showVolumeSlider ? 'visible' : ''}`}>
+                  {isMuted ? '0%' : `${Math.round(volume * 100)}%`}
+                </span>
+                <div 
+                  className="aurora-audio__volume-control-button"
+                  onMouseEnter={() => setShowVolumeSlider(true)}
+                  onMouseLeave={() => setShowVolumeSlider(false)}
+                >
+                  <div className={`aurora-audio__volume-control-slider-inside ${showVolumeSlider ? 'visible' : ''}`}>
+                    <div 
+                      ref={volumeSliderRef}
+                      className="aurora-audio__volume-control-slider-track"
+                      onClick={handleVolumeSliderClick}
+                      onMouseDown={handleVolumeSliderMouseDown}
+                    >
+                      <div 
+                        className="aurora-audio__volume-control-slider-filled"
+                        style={{ width: `${(isMuted ? 0 : volume) * 100}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                  <div 
+                    className="aurora-audio__volume-control-icon"
+                    onClick={toggleMute}
+                  >
+                    <img 
+                      src={
+                        isMuted || volume === 0 ? volumeMuteIcon : 
+                        volume < 0.33 ? volumeLowIcon : 
+                        volume < 0.67 ? volumeMediumIcon : 
+                        volumeHighIcon
+                      } 
+                      alt="Volume" 
+                      width="16" 
+                      height="16" 
+                    />
+                  </div>
                 </div>
               </div>
             </div>

@@ -406,6 +406,20 @@
     }
   }
 
+  &__lyric-subline {
+    display: block;
+    margin: 4px 0;
+    text-align: inherit;
+    
+    &:first-child {
+      margin-top: 0;
+    }
+    
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
+
   &__controls-overlay {
     position: absolute;
     bottom: 0;
@@ -529,6 +543,18 @@
       color: white;
       min-width: 35px;
       text-align: right;
+      opacity: 0;
+      visibility: hidden;
+      position: absolute;
+      left: 0;
+      top: 50%;
+      transform: translateY(-50%);
+      transition: opacity 0.3s ease, visibility 0.3s ease;
+      
+      &.visible {
+        opacity: 1;
+        visibility: visible;
+      }
     }
     
     &-button {
@@ -609,6 +635,17 @@
         height: 16px;
       }
     }
+  }
+
+  &__volume-and-loop-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  &__loop-control-wrapper {
+    display: flex;
+    align-items: center;
   }
 
   &__control-button {
