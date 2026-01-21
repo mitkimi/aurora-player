@@ -9,7 +9,40 @@ import './AuroraVideo.scss';
 // Import icons
 import playIcon from './images/play.svg';
 
-const AuroraVideo = ({
+interface Track {
+  name?: string;
+  author?: string;
+  url: string;
+  poster?: string;
+  subtitles_url?: string;
+}
+
+interface Effects {
+  background?: string;
+  cover?: string;
+  lyrics?: string;
+  handle?: string;
+}
+
+type Position = 'regular' | 'fullpage';
+type Mode = 'normal' | string;
+
+interface AuroraVideoProps {
+  url?: string;
+  poster?: string;
+  subtitles_url?: string;
+  playlist?: Track[];
+  mode?: Mode;
+  effects?: Effects;
+  position?: Position;
+  onPositionChange?: (position: Position) => void;
+  loop?: boolean;
+  muted?: boolean;
+  autoTransition?: boolean;
+  transitionDuration?: number;
+}
+
+const AuroraVideo: React.FC<AuroraVideoProps> = ({
   url,
   poster,
   subtitles_url,

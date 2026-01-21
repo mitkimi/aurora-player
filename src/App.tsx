@@ -2,10 +2,12 @@ import React, { useState } from 'react';
 import AuroraAudio from './lib/AuroraAudio';
 import './App.scss';
 
-function App() {
-  const [position, setPosition] = useState('regular');
+type Position = 'regular' | 'fullpage';
 
-  const handlePositionChange = (newPosition) => {
+function App() {
+  const [position, setPosition] = useState<Position>('regular');
+
+  const handlePositionChange = (newPosition: Position) => {
     setPosition(newPosition);
   };
   return (

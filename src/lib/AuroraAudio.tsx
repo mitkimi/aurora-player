@@ -10,7 +10,47 @@ import volumeLowIcon from './images/volume-0.svg';
 import volumeMediumIcon from './images/volume-1.svg';
 import volumeHighIcon from './images/volume-2.svg';
 
-const AuroraAudio = ({ 
+interface Track {
+  name?: string;
+  author?: string;
+  url: string;
+  poster?: string;
+  lyrics_url?: string;
+}
+
+interface Effects {
+  background?: string;
+  cover?: string;
+  lyrics?: string;
+  handle?: string;
+}
+
+interface Lyric {
+  time: number;
+  text: string;
+}
+
+type Position = 'regular' | 'fullpage';
+type Mode = 'normal' | string;
+
+interface AuroraAudioProps {
+  url?: string;
+  poster?: string;
+  lyrics_url?: string;
+  playlist?: Track[];
+  mode?: Mode;
+  effects?: Effects;
+  position?: Position;
+  onPositionChange?: (position: Position) => void;
+  loop?: boolean;
+  muted?: boolean;
+  name?: string;
+  author?: string;
+  autoTransition?: boolean;
+  transitionDuration?: number;
+}
+
+const AuroraAudio: React.FC<AuroraAudioProps> = ({ 
   url, 
   poster, 
   lyrics_url, 
@@ -33,11 +73,11 @@ const AuroraAudio = ({
 }) => {
   // State for tracking current track index
   
-  const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
+  const [currentTrackIndex, setCurrentTrackIndex] = useState<number>(0);
   
   // Use the current track from playlist or direct props
-  const currentTrack = playlist && playlist.length > 0 ? playlist[currentTrackIndex] : {
-    url,
+  const currentTrack: Track = playlist && playlist.length > 0 ? playlist[currentTrackIndex] : {
+    url: url || '',
     name: name || '',
     author: author || '',
     poster,
@@ -47,45 +87,50 @@ const AuroraAudio = ({
   // Use the current track from playlist or direct props
 
 
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [duration, setDuration] = useState(0);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [volume, setVolume] = useState(1);
-  const [progress, setProgress] = useState(0);
-  const [rotation, setRotation] = useState(0);
-  const [isLandscape, setIsLandscape] = useState(false);
-  const [isMuted, setIsMuted] = useState(muted);
-  const [showVolumeSlider, setShowVolumeSlider] = useState(false);
-  const [showControls, setShowControls] = useState(true);
-  const [isMouseOver, setIsMouseOver] = useState(false);
-  const [isDragging, setIsDragging] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [loadingPosition, setLoadingPosition] = useState(0);
-  const hideControlsTimerRef = useRef(null);
+  const [isPlaying, setIsPlaying] = useState<boolean>(false);
+  const [duration, setDuration] = useState<number>(0);
+  const [currentTime, setCurrentTime] = useState<number>(0);
+  const [volume, setVolume] = useState<number>(1);
+  const [progress, setProgress] = useState<number>(0);
+  const [rotation, setRotation] = useState<number>(0);
+  const [isLandscape, setIsLandscape] = useState<boolean>(false);
+  const [isMuted, setIsMuted] = useState<boolean>(muted);
+  const [showVolumeSlider, setShowVolumeSlider] = useState<boolean>(false);
+  const [showControls, setShowControls] = useState<boolean>(true);
+  const [isMouseOver, setIsMouseOver] = useState<boolean>(false);
+  const [isDragging, setIsDragging] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [loadingPosition, setLoadingPosition] = useState<number>(0);
+  const hideControlsTimerRef = useRef<NodeJS.Timeout | null>(null);
   
   // State for lyrics
-  const [lyrics, setLyrics] = useState([]);
-  const [currentLyricIndex, setCurrentLyricIndex] = useState(-1);
+  const [lyrics, setLyrics] = useState<Lyric[]>([]);
+  const [currentLyricIndex, setCurrentLyricIndex] = useState<number>(-1);
   
-  const audioRef = useRef(null);
-  const containerRef = useRef(null);
-  const activeLyricRef = useRef(null);
-  const lyricsContainerRef = useRef(null);
-  const progressBarRef = useRef(null);
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const activeLyricRef = useRef<HTMLDivElement>(null);
+  const lyricsContainerRef = useRef<HTMLDivElement>(null);
+  const progressBarRef = useRef<HTMLDivElement>(null);
+  const volumeSliderRef = useRef<HTMLDivElement>(null);
 
   // Effect for audio events and time updates
   useEffect(() => {
     const audio = audioRef.current;
     
     const setAudioData = () => {
-      setDuration(audio.duration);
-      setCurrentTime(audio.currentTime);
+      if (audio) {
+        setDuration(audio.duration);
+        setCurrentTime(audio.currentTime);
+      }
     };
 
     const setAudioTime = () => {
-      setCurrentTime(audio.currentTime);
-      if (audio.duration) {
-        setProgress((audio.currentTime / audio.duration) * 100);
+      if (audio) {
+        setCurrentTime(audio.currentTime);
+        if (audio.duration) {
+          setProgress((audio.currentTime / audio.duration) * 100);
+        }
       }
     };
 
@@ -102,7 +147,7 @@ const AuroraAudio = ({
 
   // Effect for rotation animation
   useEffect(() => {
-    let animationFrame;
+    let animationFrame: number;
     
     const rotateRecord = () => {
       if (isPlaying && !isLoading) {
@@ -176,7 +221,7 @@ const AuroraAudio = ({
     if (currentTrack.lyrics_url) {
       const loadLyrics = async () => {
         try {
-          const response = await fetch(currentTrack.lyrics_url);
+          const response = await fetch(currentTrack.lyrics_url!);
           const text = await response.text();
           parseLyrics(text);
         } catch (error) {
@@ -193,14 +238,14 @@ const AuroraAudio = ({
   }, [currentTrack.lyrics_url, currentTrackIndex]);
   
   // Parse lyrics from LRC format
-  const parseLyrics = (lrcText) => {
+  const parseLyrics = (lrcText: string) => {
     const lines = lrcText.split('\n');
-    const parsedLyrics = [];
+    const parsedLyrics: Lyric[] = [];
     
     lines.forEach(line => {
       // Match timestamp pattern [mm:ss.xx] or [mm:ss.xxx]
       const timeRegex = /\[(\d{2}):(\d{2}\.\d{2,3})\]/g;
-      let match;
+      let match: RegExpExecArray | null;
       
       while ((match = timeRegex.exec(line)) !== null) {
         const minutes = parseInt(match[1]);
@@ -275,9 +320,10 @@ const AuroraAudio = ({
 
   
 
-
   const togglePlayPause = () => {
     const audio = audioRef.current;
+    if (!audio) return;
+    
     if (isPlaying) {
       audio.pause();
     } else {
@@ -316,8 +362,10 @@ const AuroraAudio = ({
   };
 
   // Handle progress bar click
-  const handleProgressClick = (e) => {
+  const handleProgressClick = (e: React.MouseEvent<HTMLDivElement>) => {
     const audio = audioRef.current;
+    if (!audio) return;
+    
     const rect = e.currentTarget.getBoundingClientRect();
     const pos = (e.clientX - rect.left) / rect.width;
     
@@ -340,8 +388,10 @@ const AuroraAudio = ({
   };
   
   // Handle progress bar drag
-  const handleProgressDrag = (e) => {
+  const handleProgressDrag = (e: MouseEvent) => {
     const audio = audioRef.current;
+    if (!audio || !progressBarRef.current) return;
+    
     const rect = progressBarRef.current.getBoundingClientRect();
     const pos = Math.min(Math.max((e.clientX - rect.left) / rect.width, 0), 1); // Clamp between 0 and 1
     
@@ -365,12 +415,12 @@ const AuroraAudio = ({
   };
   
   // Handle mouse down on progress bar to start drag
-  const handleProgressMouseDown = (e) => {
+  const handleProgressMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     // Prevent default behavior and start listening for mousemove
     e.preventDefault();
     setIsDragging(true);
     
-    const handleMouseMove = (e) => {
+    const handleMouseMove = (e: MouseEvent) => {
       handleProgressDrag(e);
     };
     
@@ -384,19 +434,23 @@ const AuroraAudio = ({
     document.addEventListener('mouseup', handleMouseUp);
     
     // Also trigger the initial drag position
-    handleProgressDrag(e);
+    handleProgressDrag(e.nativeEvent);
   };
 
-  const handleVolumeChange = (e) => {
+  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const volume = parseFloat(e.target.value);
     setVolume(volume);
-    audioRef.current.volume = volume;
+    if (audioRef.current) {
+      audioRef.current.volume = volume;
+    }
     if (isMuted && volume > 0) {
       setIsMuted(false);
     }
   };
   
   const toggleMute = () => {
+    if (!audioRef.current) return;
+    
     if (isMuted) {
       // Restore to previous volume
       audioRef.current.volume = volume;
@@ -408,7 +462,9 @@ const AuroraAudio = ({
     }
   };
   
-  const handleVolumeSliderClick = (e) => {
+  const handleVolumeSliderClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!audioRef.current) return;
+    
     const slider = e.currentTarget;
     const rect = slider.getBoundingClientRect();
     const position = (e.clientX - rect.left) / rect.width;
@@ -420,10 +476,43 @@ const AuroraAudio = ({
       setIsMuted(false);
     }
   };
+
+  const handleVolumeSliderDrag = (e: MouseEvent) => {
+    if (!audioRef.current || !volumeSliderRef.current) return;
+    
+    const rect = volumeSliderRef.current.getBoundingClientRect();
+    const position = Math.min(Math.max((e.clientX - rect.left) / rect.width, 0), 1);
+    const volumeValue = Math.max(0, Math.min(1, position));
+    
+    setVolume(volumeValue);
+    audioRef.current.volume = volumeValue;
+    if (isMuted && volumeValue > 0) {
+      setIsMuted(false);
+    }
+  };
+
+  const handleVolumeSliderMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    
+    const handleMouseMove = (e: MouseEvent) => {
+      handleVolumeSliderDrag(e);
+    };
+    
+    const handleMouseUp = () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+    
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    
+    // Also trigger the initial drag position
+    handleVolumeSliderDrag(e.nativeEvent);
+  };
   
 
 
-  const formatTime = (time) => {
+  const formatTime = (time: number) => {
     if (isNaN(time)) return '00:00';
     
     // If duration is more than 1 hour, show HH:MM:SS format
@@ -441,7 +530,7 @@ const AuroraAudio = ({
 
   // Handle fullscreen exit with ESC key
   useEffect(() => {
-    const handleEscKey = (event) => {
+    const handleEscKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape' && position === 'fullpage') {
         // Call a callback to change position back to regular
         if (onPositionChange) {
@@ -458,7 +547,7 @@ const AuroraAudio = ({
 
   // Determine classes based on props
   // Function to check if a string is a valid CSS color format
-  const isValidColor = (color) => {
+  const isValidColor = (color: string): boolean => {
     // Check for hex colors (#FFF, #FFFFFF)
     if (/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/.test(color)) return true;
     // Check for rgb/rgba colors
@@ -739,30 +828,30 @@ const AuroraAudio = ({
             
             {/* Right: Volume Control */}
             <div className="aurora-audio__volume-control-wrapper">
-              <div className="aurora-audio__volume-control">
-                <span 
-                  className="aurora-audio__volume-control-percent"
-                  onMouseEnter={() => setShowVolumeSlider(true)}
-                  onMouseLeave={() => setShowVolumeSlider(false)}
-                >
-                  {Math.round(volume * 100)}%
-                </span>
-                <div className={`aurora-audio__volume-control-slider-container-inline ${showVolumeSlider ? 'visible' : ''}`}>
+              <span className="aurora-audio__volume-control-percent">
+                {Math.round(volume * 100)}%
+              </span>
+              <div 
+                className="aurora-audio__volume-control-button"
+                onMouseEnter={() => setShowVolumeSlider(true)}
+                onMouseLeave={() => setShowVolumeSlider(false)}
+              >
+                <div className={`aurora-audio__volume-control-slider-inside ${showVolumeSlider ? 'visible' : ''}`}>
                   <div 
-                    className="aurora-audio__volume-control-slider-container-slider"
+                    ref={volumeSliderRef}
+                    className="aurora-audio__volume-control-slider-track"
                     onClick={handleVolumeSliderClick}
+                    onMouseDown={handleVolumeSliderMouseDown}
                   >
                     <div 
-                      className="aurora-audio__volume-control-slider-container-slider-thumb"
-                      style={{ left: `${(isMuted ? 0 : volume) * 100}%` }}
+                      className="aurora-audio__volume-control-slider-filled"
+                      style={{ width: `${(isMuted ? 0 : volume) * 100}%` }}
                     ></div>
                   </div>
                 </div>
                 <div 
                   className="aurora-audio__volume-control-icon"
                   onClick={toggleMute}
-                  onMouseEnter={() => setShowVolumeSlider(true)}
-                  onMouseLeave={() => setShowVolumeSlider(false)}
                 >
                   <img 
                     src={
