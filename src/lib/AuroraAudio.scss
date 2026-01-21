@@ -1,12 +1,15 @@
 .aurora-audio {
   width: 100%;
   height: 100%;
+  max-height: 100%; // Strict height limit
   margin: 0;
   padding: 0;
   border-radius: 16px;
   background: #000000;
   position: relative;
   overflow: hidden;
+  box-sizing: border-box; // Include padding in height calculation
+  contain: layout style; // Isolate layout calculations
 
   &--fullpage {
     position: fixed;
@@ -21,17 +24,22 @@
   }
 
   &--normal {
-    // Normal mode specific styles
+    // Normal mode specific styles - placeholder for future styles
+    display: block;
   }
 
   &__container {
     position: relative;
     width: 100%;
     height: 100%;
+    max-height: 100%; // Strict height limit
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
+    overflow: hidden; // Prevent content from overflowing
+    contain: layout style; // Isolate layout calculations
+    box-sizing: border-box; // Include padding in height calculation
   }
 
   &__media-layout {
@@ -41,6 +49,12 @@
     gap: 20px;
     width: 100%;
     height: 100%;
+    max-height: 100%; // Strict height limit
+    position: relative;
+    overflow: hidden; // Prevent content from overflowing
+    min-height: 0; // Prevent flex item from overflowing parent
+    box-sizing: border-box; // Include padding in height calculation
+    contain: layout style; // Isolate layout calculations
     
     // When width >= height (landscape), use horizontal layout
     &.landscape {
@@ -48,16 +62,27 @@
       justify-content: space-between;
       align-items: center;
       height: 100%;
+      max-height: 100%; // Strict limit
       
       // In landscape mode, lyrics and record areas split width equally
       .aurora-audio__lyrics {
         width: 50%;
         height: 100%;
+        max-height: 100%; // Strict height limit
+        min-height: 0;
+        position: relative;
+        flex-shrink: 0;
+        flex-grow: 0;
       }
       
       .aurora-audio__record-container {
-        width: 50%; // Take remaining space
+        width: 50%;
         height: 100%;
+        max-height: 100%; // Strict height limit
+        min-height: 0;
+        position: relative;
+        flex-shrink: 0;
+        flex-grow: 0;
       }
     }
     
@@ -65,20 +90,33 @@
     &.portrait,
     &.column {
       flex-direction: column;
-      justify-content: space-between;
+      justify-content: flex-start;
       align-items: center;
       width: 100%;
       height: 100%;
+      max-height: 100%; // Strict limit
       
       // In portrait mode, lyrics and record areas split height equally
       .aurora-audio__lyrics {
         width: 100%;
         height: 50%;
+        max-height: 50%; // Strict height limit - critical
+        min-height: 0;
+        flex-shrink: 0;
+        flex-grow: 0;
+        position: relative;
+        top: 0;
       }
       
       .aurora-audio__record-container {
         width: 100%;
         height: 50%;
+        max-height: 50%; // Strict height limit
+        min-height: 0;
+        flex-shrink: 0;
+        flex-grow: 0;
+        position: relative;
+        top: 0;
       }
     }
   }
@@ -151,55 +189,64 @@
     text-align: center;
     font-size: 14px;
     height: 200px;
-    overflow-y: visible;
+    overflow-y: auto;
+    overflow-x: hidden;
+    position: relative;
+    box-sizing: border-box;
+    contain: strict; // Use strict containment for maximum isolation
+    isolation: isolate; // Create new stacking context
+    will-change: scroll-position; // Optimize scrolling performance
+    // Prevent any layout impact on parent
+    display: flex;
+    flex-direction: column;
+    
+    // Hide scrollbar
+    &::-webkit-scrollbar {
+      display: none;
+    }
+    -ms-overflow-style: none;
+    scrollbar-width: none;
     
     // For landscape (horizontal) layout
     .aurora-audio__media-layout.landscape & {
       margin-top: 0;
       height: 100%;
-      overflow-y: visible;
-      display: flex;
-      align-items: center;
-              
-      &-container {
-        height: 100%;
-        width: 100%;
-        overflow-y: visible;
-        display: flex;
-        flex-direction: column;
-        align-items: flex-start;
-        position: relative;
-        padding: 0 10px; // Add horizontal padding for landscape
-                
-        &::-webkit-scrollbar {
-          display: none;
-        }
-                
-        -ms-overflow-style: none;
-        scrollbar-width: none;
-      }
+      max-height: 100%; // Strict limit
+      overflow-y: auto;
+      overflow-x: hidden;
+      position: relative;
+    }
+    
+    // For portrait (vertical) layout
+    .aurora-audio__media-layout.portrait &,
+    .aurora-audio__media-layout.column & {
+      position: relative;
+      height: 50%;
+      margin-top: 0;
+      max-height: 50%; // Strict limit - never exceed 50%
+      flex-shrink: 0; // Prevent shrinking
+      flex-grow: 0; // Prevent growing
+      // Ensure height is strictly enforced
+      min-height: 0; // Allow flex to shrink if needed
     }
     
     &-container {
       display: flex;
       flex-direction: column;
       align-items: center;
-      overflow-y: visible;
+      padding: 0 10px;
+      box-sizing: border-box;
+      width: 100%;
+      position: relative;
+      // Critical: Do not set any height properties that could affect parent
+      // Let the parent's overflow handle scrolling
+      // Height is determined by content, but parent clips it
       
       // For landscape (horizontal) layout - left align lyrics
       .aurora-audio__media-layout.landscape & {
         align-items: flex-start;
         text-align: left;
-        
-        .aurora-audio__lyric-line {
-          width: 100%;
-          font-size: 18px;
-          
-          &--active {
-            font-size: 24px;
-            color: #ffffff;
-          }
-        }
+        // Vertical padding will be set dynamically via JavaScript
       }
       
       // For portrait (vertical) layout - center align lyrics
@@ -207,58 +254,175 @@
       .aurora-audio__media-layout.column & {
         align-items: center;
         text-align: center;
+        padding: 0 10px;
       }
       
-
-      
-      // For normal mode - align lyrics to top initially, scroll to active lyric
-      .aurora-audio--normal & {
-        display: flex;
-        flex-direction: column;
-        height: 100%;
-        justify-content: flex-start;
-        
-        .aurora-audio__lyric-line {
-          font-size: 18px;
-          
-          &--active {
-            font-size: 24px;
-            color: #ffffff;
-          }
-        }
+      // Effects mode - always center aligned
+      &--effects {
+        align-items: center;
+        text-align: center;
+        padding: 0 10px;
       }
     }
     
-    &-line {
-      font-size: 18px;
+    // Effects mode lyrics styles
+    &--effects {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      overflow-y: auto;
+      overflow-x: hidden;
+      contain: strict;
+      isolation: isolate;
+      will-change: scroll-position;
+      color: #ffffff; // Ensure text is visible
+      
+      // Gradient fade at top and bottom (200px smooth fade)
+      mask-image: linear-gradient(
+        to bottom,
+        transparent 0px,
+        black 200px,
+        black calc(100% - 200px),
+        transparent 100%
+      );
+      -webkit-mask-image: linear-gradient(
+        to bottom,
+        transparent 0px,
+        black 200px,
+        black calc(100% - 200px),
+        transparent 100%
+      );
+      
+      &::-webkit-scrollbar {
+        display: none;
+      }
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+    
+    // Floating lyrics styles
+    &--floating {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+      color: rgba(255, 255, 255, 0.6); // 60% white
+      
+      // Gradient fade at top and bottom (200px smooth fade)
+      mask-image: linear-gradient(
+        to bottom,
+        transparent 0px,
+        black 200px,
+        black calc(100% - 200px),
+        transparent 100%
+      );
+      -webkit-mask-image: linear-gradient(
+        to bottom,
+        transparent 0px,
+        black 200px,
+        black calc(100% - 200px),
+        transparent 100%
+      );
+    }
+  }
+
+  &__lyric-line {
+    font-size: 18px;
+    color: rgba(255, 255, 255, 0.6); // 60% white
+    padding: 4px 0;
+    transition: font-size 0.3s ease, color 0.3s ease;
+    line-height: 1.5;
+    display: inline-block; // Allow character-by-character animation
+    
+    // Character wrapper for individual character animation
+    &-char {
+      display: inline-block;
+    }
+    
+    &--active {
+      font-size: 24px;
+      color: rgba(255, 255, 255, 0.8); // 80% white
+      font-weight: 700; // Bold
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', '微软雅黑', 'PingFang SC', 'Hiragino Sans GB', 'Helvetica Neue', Arial, sans-serif; // Sans-serif font
+      max-width: 70%; // Maximum width 70%
+      margin: 0 auto; // Center align
+    }
+    
+    // Active lyric in landscape mode - left aligned
+    &--active-landscape {
+      margin: 0 !important; // Override center alignment
+      text-align: left !important; // Force left alignment in landscape
+    }
+    
+    // Effects mode - larger font sizes
+    .aurora-audio--effects & {
+      font-size: 24px; // Base size in effects mode
       
       &--active {
-        font-size: 24px;
-        color: #ffffff;
+        font-size: 36px; // Active lyric in effects mode - increased size
+        color: rgba(255, 255, 255, 0.8); // 80% white
+        font-weight: 700; // Bold
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', '微软雅黑', 'PingFang SC', 'Hiragino Sans GB', 'Helvetica Neue', Arial, sans-serif; // Sans-serif font
+        max-width: 70%; // Maximum width 70%
+        margin: 0 auto; // Center align
       }
     }
     
-    // For landscape (horizontal) layout - specific lyric alignment
-    .aurora-audio__media-layout.landscape & {
-      &-container {
-        position: relative;
-        height: 100%;
-        overflow: visible;
-        display: flex;
-        flex-direction: column;
-        justify-content: flex-start;
+    // Floating mode - very large text, 60% white
+    // Use higher specificity to override base styles
+    &--floating,
+    .aurora-audio--effects &--floating {
+      font-size: 72px !important; // Very large text
+      color: rgba(255, 255, 255, 0.6) !important; // 60% white transparent
+      font-weight: 600 !important; // Medium bold
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', '微软雅黑', 'PingFang SC', 'Hiragino Sans GB', 'Helvetica Neue', Arial, sans-serif !important; // Sans-serif font
+      text-align: center;
+      line-height: 1.2;
+      padding: 0;
+      margin: 0;
+      max-width: 70% !important; // Maximum width 70%
+      transition: opacity 0.3s ease;
+      display: inline-block; // Allow character-by-character animation
+      
+      .aurora-audio__lyric-line-char {
+        display: inline-block;
         
-        .aurora-audio__lyric-line {
-          text-align: left;
-          width: 100%;
-          font-size: 18px;
-          
-          &--active {
-            font-size: 24px;
-            color: #ffffff;
+        @keyframes char-float-floating {
+          0%, 100% {
+            transform: translateY(0px);
+          }
+          50% {
+            transform: translateY(-8px);
           }
         }
       }
+      
+      // Animation only when playing - each character floats sequentially
+      .aurora-audio--playing & .aurora-audio__lyric-line-char {
+        animation: char-float-floating 3s ease-in-out infinite !important;
+        // animation-delay is set inline via style prop for sequential effect
+      }
+    }
+  }
+
+  &__lyric-subline {
+    display: block;
+    margin: 4px 0;
+    text-align: inherit;
+    
+    &:first-child {
+      margin-top: 0;
+    }
+    
+    &:last-child {
+      margin-bottom: 0;
     }
   }
 
@@ -300,7 +464,10 @@
     background: rgba(255, 255, 255, 0.1); // 10% white as requested for default track
     border-radius: 3px;
     cursor: pointer;
-    position: relative;
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
     overflow: hidden;
   }
 
@@ -316,8 +483,15 @@
   
 
 
+  &__progress-relative-container {
+    position: relative;
+    height: 31px; // 6px for progress bar + 5px for space + 20px for loading indicator height
+  }
+  
   &__progress-track {
     margin-bottom: 10px;
+    padding-top: 5px; // Space for loading indicator above
+    position: relative;
   }
 
   &__time-display {
@@ -363,86 +537,121 @@
   }
   
   &__volume-control {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    position: relative;
-    
     &-wrapper {
       display: flex;
       align-items: center;
-      gap: 5px;
+      gap: 8px;
       position: relative;
-      overflow: visible;
     }
     
-    &-slider-container {
-      position: absolute;
-      right: 100%;
-      top: 50%;
-      transform: translateY(-50%);
-      background: rgba(0, 0, 0, 0.8);
-      border-radius: 8px;
-      padding: 10px;
-      margin-right: 5px;
-      width: 120px;
+    &-percent {
+      font-size: 12px;
+      color: white;
+      min-width: 35px;
+      text-align: right;
       opacity: 0;
       visibility: hidden;
+      position: absolute;
+      left: 0;
+      top: 50%;
+      transform: translateY(-50%);
       transition: opacity 0.3s ease, visibility 0.3s ease;
       
       &.visible {
         opacity: 1;
         visibility: visible;
       }
+    }
+    
+    &-button {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.2);
+      cursor: pointer;
+      transition: width 0.3s ease, border-radius 0.3s ease, background 0.3s ease, padding 0.3s ease;
+      overflow: visible;
+      padding: 0;
       
-      &-slider {
-        width: 100px;
-        height: 4px;
-        background: #444;
-        border-radius: 2px;
-        position: relative;
-        cursor: pointer;
-        
-        &-thumb {
-          position: absolute;
-          width: 16px;
-          height: 16px;
-          background: white;
-          border-radius: 50%;
-          top: 50%;
-          transform: translateY(-50%);
-        }
+      &:hover {
+        background: rgba(255, 255, 255, 0.4);
+        width: 96px; // 60px (slider) + 8px (gap) + 28px (icon area)
+        border-radius: 16px;
+        justify-content: space-between;
+        padding-left: 8px;
+        padding-right: 4px;
       }
+    }
+    
+    &-slider-inside {
+      display: flex;
+      align-items: center;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.3s ease, visibility 0.3s ease, width 0.3s ease;
+      pointer-events: none;
+      width: 0;
+      overflow: hidden;
+      margin-right: 0;
+      
+      &.visible {
+        opacity: 1;
+        visibility: visible;
+        pointer-events: all;
+        width: 60px;
+        margin-right: 4px;
+      }
+    }
+    
+    &-slider-track {
+      width: 60px;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.3);
+      border-radius: 2px;
+      position: relative;
+      cursor: pointer;
+    }
+    
+    &-slider-filled {
+      position: absolute;
+      left: 0;
+      top: 0;
+      height: 100%;
+      background: rgba(255, 255, 255, 0.8);
+      border-radius: 2px;
+      pointer-events: none;
     }
     
     &-icon {
       display: flex;
       align-items: center;
       justify-content: center;
-      width: 30px;
-      height: 30px;
-      border-radius: 50%;
-      background: rgba(255, 255, 255, 0.2);
-      cursor: pointer;
-      transition: background 0.3s ease;
+      width: 24px;
+      height: 24px;
+      flex-shrink: 0;
+      z-index: 1;
+      position: relative;
       
-      &:hover {
-        background: rgba(255, 255, 255, 0.4);
-      }
-      
-      svg {
+      img {
         width: 16px;
         height: 16px;
       }
     }
-    
-    &-percent {
-      font-size: 12px;
-      color: white;
-      min-width: 25px;
-      text-align: right;
-      cursor: pointer;
-    }
+  }
+
+  &__volume-and-loop-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  &__loop-control-wrapper {
+    display: flex;
+    align-items: center;
   }
 
   &__control-button {
@@ -484,6 +693,49 @@
     opacity: 0.08; // 8% transparency
     z-index: 1;
     pointer-events: none; // Allow interactions to pass through
-    filter: blur(5px); // Add 5px blur as requested
+    // filter: blur(5px); // Add 5px blur as requested
+  }
+}
+
+.aurora-audio {
+  &--loading {
+    cursor: wait;
+  }
+  
+  &__loading-indicator {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 10001; // Higher than other elements
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+  }
+  
+  &__loading-indicator--above-progress {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 20px;
+    position: absolute;
+    bottom: 11px; // Positioned 5px above the progress bar (6px progress bar height + 5px spacing)
+    z-index: 10;
+  }
+  
+  &__spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    border-top-color: rgba(255, 255, 255, 0.8);
+    animation: spin 1s linear infinite;
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
   }
 }

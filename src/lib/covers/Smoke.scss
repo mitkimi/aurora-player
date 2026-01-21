@@ -1,0 +1,20 @@
+.smoke-container {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  overflow: hidden;
+  border-radius: inherit; // Inherit border-radius from parent
+  clip-path: inset(0); // Ensure content is clipped to container bounds
+  opacity: 0.28; // Overall opacity for the entire smoke layer (25%)
+  
+  .smoke-particle {
+    position: absolute;
+    border-radius: 50%;
+    pointer-events: none;
+    will-change: transform, opacity;
+    transform-origin: center center;
+  }
+}
