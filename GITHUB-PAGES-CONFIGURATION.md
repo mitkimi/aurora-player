@@ -37,7 +37,9 @@
 2. 您应该能看到名为 "Deploy to GitHub Pages" 的工作流正在运行或已完成
 3. 部署完成后，您可以在 "Settings" -> "Pages" 中看到部署状态
 4. 页面将在以下 URL 可访问：
-   - `https://<your-username>.github.io/<repository-name>/aurora-player/`
+   - `https://<your-username>.github.io/<repository-name>/`
+   - 例如，如果您的仓库名为 `aurora-player`，则地址为：
+     `https://mitkimi.github.io/aurora-player`
 
 ### 5. 自定义域名（可选）
 

@@ -18,6 +18,10 @@ A modern audio and video player component with Aurora effects and additional fea
 npm install aurora-player
 ```
 
+## GitHub Pages Deployment
+
+This project can be deployed to GitHub Pages at `https://mitkimi.github.io/aurora-player` by running the provided GitHub Actions workflow.
+
 ## Usage
 
 ```jsx
