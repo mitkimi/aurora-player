@@ -4,7 +4,7 @@ import './App.scss';
 
 type Mode = 'normal' | 'effects';
 type Background = 'Aurora' | 'Lightning' | 'Threads' | 'RippleGrid' | 'Orb' | 'Prism' | 'none';
-type Cover = 'Smoke' | 'Splash' | 'none';
+type Cover = 'Smoke' | 'none';
 type Lyrics = 'scrolling' | 'Scrolling' | 'floating' | 'Floating' | 'none';
 type Handle = 'LightingCenter' | string;
 type Loop = false | true | 'single' | 'list';
@@ -75,7 +75,6 @@ function App() {
                   onChange={(e) => setCover(e.target.value as Cover)}
                 >
                   <option value="Smoke">Smoke</option>
-                  <option value="Splash">Splash</option>
                   <option value="none">None</option>
                 </select>
               </div>

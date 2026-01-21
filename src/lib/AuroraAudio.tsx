@@ -23,7 +23,6 @@ import Prism from './backgrounds/Prism';
 
 // Import cover effects
 import Smoke from './covers/Smoke';
-import SplashCursor from './covers/SplashCursor';
 
 // Utility function to split text into balanced lines
 const splitIntoBalancedLines = (text: string, maxLines: number = 2): string[] => {
@@ -1233,11 +1232,6 @@ const AuroraAudio: React.FC<AuroraAudioProps> = ({
           {effects.cover === 'Smoke' && (
             <Smoke speed={0.5} opacity={1.0} intensity={1.0} emitterCount={15} />
           )}
-          
-          {/* SplashCursor cover effect */}
-          {effects.cover === 'Splash' && (
-            <SplashCursor background={effects.coverBackground || '#000000'} />
-          )}
         </div>
       )}
       
@@ -1371,7 +1365,7 @@ const AuroraAudio: React.FC<AuroraAudioProps> = ({
                     return (
                       <div 
                         key={index} 
-                        className={`aurora-audio__lyric-line ${index === currentLyricIndex ? 'aurora-audio__lyric-line--active' : ''}`}
+                        className={`aurora-audio__lyric-line ${index === currentLyricIndex ? 'aurora-audio__lyric-line--active' : ''} ${(index === currentLyricIndex && isLandscape) ? 'aurora-audio__lyric-line--active-landscape' : ''}`}
                         ref={index === currentLyricIndex ? activeLyricRef : null}
                       >
                         {line && line.text ? splitIntoBalancedLines(line.text, 2).map((subLine, lineIndex) => (
