@@ -57,6 +57,19 @@
 2. 确保工作流有适当的权限
 3. 检查 "Actions" 标签页中的错误日志
 4. 确保构建脚本能够成功运行
+5. 如果遇到依赖安装问题，请参考下方详细说明
+
+### 依赖安装问题
+
+如果工作流在依赖安装步骤失败，并显示关于 package-lock.json 同步的错误，这表明 package.json 和 package-lock.json 之间存在不匹配。
+
+**症状：**
+```
+npm error `npm ci` can only install packages when your package.json and package-lock.json or npm-shrinkwrap.json are in sync. Please update your lock file with `npm install` before continuing.
+```
+
+**解决方案：**
+在本地运行 `npm install` 来更新 package-lock.json 文件，然后将更新后的文件提交到仓库。
 
 ### 7. 手动触发部署
 
