@@ -117,7 +117,7 @@ const AudioPlayerScreen: React.FC<AudioPlayerScreenProps> = () => {
                   value={lyricsDisplay}
                   onChange={(value) => setLyricsDisplay(value as string)}
                   options={[
-                    { value: "Scroll", label: "滚动" },
+                    { value: "Scrolling", label: "滚动" },
                     { value: "Floating", label: "浮动" },
                     { value: "none", label: "隐藏" }
                   ]}
