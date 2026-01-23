@@ -40,7 +40,7 @@ export default function Navigation() {
   };
 
   return (
-    <nav className="navigation">
+    <div className="navigation">
       <GlassSurface
         width={600}
         height={80}
@@ -79,6 +79,6 @@ export default function Navigation() {
         </div>
         </div>
       </GlassSurface>
-    </nav>
+    </div>
   );
 }
