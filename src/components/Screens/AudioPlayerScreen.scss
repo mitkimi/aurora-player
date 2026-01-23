@@ -1,0 +1,71 @@
+.audio-player-screen {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  box-sizing: border-box;
+}
+
+.display-area {
+  width: 1200px;
+  height: 700px;
+  margin: 0 auto;
+  flex-grow: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.config-bar {
+  width: 100%;
+  max-width: 1200px;
+  background: #000000;
+  backdrop-filter: blur(10px);
+  border-radius: 12px;
+  padding: 20px;
+  margin-top: 20px;
+  transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  border-radius: 40px;
+}
+
+.config-content {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  justify-content: center;
+  
+  .config-group {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 20px;
+    label {
+      min-width: 80px;
+      color: #ffffff;
+      font-size: 14px;
+      text-align: center;
+    }
+  }
+}
+
+@media (max-width: 768px) {
+  .config-group {
+    flex-direction: column;
+    align-items: flex-start;
+    
+    label {
+      margin-bottom: 0.5rem;
+      margin-right: 0;
+    }
+    
+    select {
+      width: 100%;
+    }
+  }
+}
