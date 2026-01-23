@@ -1,0 +1,75 @@
+// Define CSS custom properties for dark theme
+:root {
+  /* Apron Design Dark Theme Variables */
+  --apron-color-primary: #6366f1;
+  --apron-color-primary-light: #818cf8;
+  --apron-color-primary-dark: #4f46e5;
+  --apron-color-secondary: #6b7280;
+  --apron-color-success: #10b981;
+  --apron-color-warning: #f59e0b;
+  --apron-color-danger: #ef4444;
+  --apron-color-info: #3b82f6;
+  
+  /* Background Colors */
+  --apron-bg-base: #1f2937;
+  --apron-bg-container: #111827;
+  --apron-bg-elevated: #1f2937;
+  --apron-bg-overlay: rgba(0, 0, 0, 0.8);
+  
+  /* Text Colors */
+  --apron-text-primary: #f9fafb;
+  --apron-text-secondary: #d1d5db;
+  --apron-text-tertiary: #9ca3af;
+  --apron-text-disabled: #6b7280;
+  
+  /* Border Colors */
+  --apron-border-base: #374151;
+  --apron-border-light: #4b5563;
+  --apron-border-heavy: #1f2937;
+  
+  /* Shadow Colors */
+  --apron-shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+  --apron-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
+  --apron-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -2px rgba(0, 0, 0, 0.3);
+  
+  /* Component Specific Colors */
+  --apron-button-primary-bg: #4f46e5;
+  --apron-button-primary-hover: #6366f1;
+  --apron-button-primary-active: #4338ca;
+  --apron-button-default-bg: #374151;
+  --apron-button-default-hover: #4b5563;
+  --apron-button-default-active: #6b7280;
+  --apron-input-bg: #1f2937;
+  --apron-input-border: #374151;
+  --apron-input-focus: #6366f1;
+  --apron-card-bg: #1f2937;
+  --apron-card-border: #374151;
+  
+  /* Switch Component */
+  --apron-switch-checked-color: #4f46e5;
+  --apron-switch-unchecked-color: #6b7280;
+  --apron-switch-thumb-color: #ffffff;
+  
+  /* Select Component */
+  --apron-select-bg: #1f2937;
+  --apron-select-border: #374151;
+  --apron-select-dropdown-bg: #111827;
+  --apron-select-option-hover-bg: #374151;
+}
+
+/* Apply theme based on apron-theme attribute */
+[data-apron-theme="dark"] {
+  color-scheme: dark;
+}
+
+/* Override default body styles to match dark theme */
+body {
+  background: linear-gradient(135deg, #1a1a1a 0%, #0d0d0d 100%) !important;
+  color: #fff !important;
+}
+
+/* Ensure all apron components use dark theme */
+.apron-component {
+  background-color: var(--apron-bg-base) !important;
+  color: var(--apron-text-primary) !important;
+}
