@@ -88,10 +88,9 @@ const AudioPlayerScreen: React.FC<AudioPlayerScreenProps> = () => {
                   value={backgroundEffect}
                   onChange={(value) => setBackgroundEffect(value as string)}
                   options={[
-                    { value: "Aurora", label: "极光" },
                     { value: "Lightning", label: "闪电" },
                     { value: "Threads", label: "线程" },
-                    { value: "RippleGrid", label: "涟漪网格" },
+                    { value: "RippleGrid", label: "网格" },
                     { value: "Orb", label: "球体" },
                     { value: "Prism", label: "棱镜" },
                     { value: "none", label: "无" }

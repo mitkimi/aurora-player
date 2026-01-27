@@ -14,7 +14,6 @@ import loopSingleIcon from './images/loop-single.svg';
 import loopAllIcon from './images/loop.svg';
 
 // Import background effects
-import Aurora from './backgrounds/Aurora';
 import Lightning from './backgrounds/Lightning';
 import Threads from './backgrounds/Threads';
 import RippleGrid from './backgrounds/RippleGrid';
@@ -251,7 +250,7 @@ const AuroraAudio: React.FC<AuroraAudioProps> = ({
   playlist, 
   mode = 'normal',
   effects = {
-    background: 'Aurora',
+    background: 'none',
     cover: 'none',
     lyrics: 'Scroll',
     handle: 'LightingCenter'
@@ -1087,14 +1086,14 @@ const AuroraAudio: React.FC<AuroraAudioProps> = ({
   if (!background) {
     // Extract background color from effects based on mode
     // In normal mode, only accept CSS color values and gradients, not enum values
-    // In other modes, enum values like 'Aurora', 'Gradient', 'Solid' are acceptable
+    // In other modes, enum values like 'Lightning', 'Gradient', 'Solid' are acceptable
     if (mode === 'normal') {
       // In normal mode, only use as background color if it's a valid CSS color or gradient
       if (typeof effects.background === 'string' && isValidColor(effects.background)) {
         backgroundColor = effects.background;
       }
     } else {
-      // In other modes, if it's not a valid CSS color, we still assign it (for enum values like 'Aurora')
+      // In other modes, if it's not a valid CSS color, we still assign it (for enum values like 'Lightning')
       if (typeof effects.background === 'string') {
         backgroundColor = effects.background;
       }
@@ -1141,18 +1140,6 @@ const AuroraAudio: React.FC<AuroraAudioProps> = ({
       {/* Background effects for effects mode */}
       {mode === 'effects' && effects.background && effects.background !== 'none' && (
         <>
-          {/* Aurora background effect */}
-          {effects.background === 'Aurora' && (
-            <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 1, opacity: 0.7 }}>
-              <Aurora
-                colorStops={["#7cff67","#B19EEF","#5227FF"]}
-                blend={0.5}
-                amplitude={1.0}
-                speed={1}
-              />
-            </div>
-          )}
-          
           {/* Lightning background effect */}
           {effects.background === 'Lightning' && (
             <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 1, opacity: 0.7 }}>
