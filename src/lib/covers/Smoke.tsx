@@ -24,16 +24,17 @@ interface SmokeParticle {
   element: HTMLDivElement;
 }
 
+const MAX_PARTICLES = 20; // 限制同时存在的粒子数以优化性能
+
 const Smoke: React.FC<SmokeProps> = ({ 
   speed = 0.5, 
   opacity = 1.0,
   intensity = 1.0,
-  emitterCount = 15
+  emitterCount = 8
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const particlesRef = useRef<SmokeParticle[]>([]);
   const emittersRef = useRef<{ x: number; intervalId: number | null; timeoutId?: number | null }[]>([]);
-  const animationFrameRef = useRef<number | null>(null); // eslint-disable-line @typescript-eslint/no-unused-vars
 
   // Create a smoke particle element
   const createParticleElement = useCallback((): HTMLDivElement => {
@@ -42,25 +43,25 @@ const Smoke: React.FC<SmokeProps> = ({
     particle.style.position = 'absolute';
     particle.style.borderRadius = '50%';
     particle.style.pointerEvents = 'none';
-    particle.style.willChange = 'transform, opacity';
+    particle.style.transformOrigin = 'center center';
     return particle;
   }, []);
 
   // Create and animate a smoke particle
   const createParticle = useCallback((emitterX: number, containerHeight: number) => {
     if (!containerRef.current) return;
+    if (particlesRef.current.length >= MAX_PARTICLES) return;
 
     const particleElement = createParticleElement();
     containerRef.current.appendChild(particleElement);
 
-    // Random properties for variation
-    const startX = emitterX + gsap.utils.random(-50, 50);
+    // 烟雾最多覆盖下半屏：粒子从底部上升到屏幕中线（50%）
+    const startX = emitterX + gsap.utils.random(-40, 40);
     const startY = containerHeight;
-    // Move particles all the way up and beyond the container top for continuous flow
-    // Smaller particles with more variation for better layering
-    const radius = gsap.utils.random(40, 80);
-    const maxRadius = 80; // Maximum particle radius
-    const endY = -containerHeight - maxRadius; // Move completely out of view
+    const radius = gsap.utils.random(35, 65);
+    const maxRadius = 65;
+    const midHeight = containerHeight * 0.5; // 最高到半屏
+    const endY = midHeight - gsap.utils.random(0, maxRadius); // 止于中线附近
     const particleOpacity = gsap.utils.random(0.15 * opacity * intensity, 0.25 * opacity * intensity);
     // More scale variation for better layering effect
     const particleScale = gsap.utils.random(0.8, 1.5);
@@ -84,7 +85,7 @@ const Smoke: React.FC<SmokeProps> = ({
     const edgeOpacity = particleOpacity * 0.4;
     const gradient = `radial-gradient(circle, rgba(255, 255, 255, ${centerOpacity}) 0%, rgba(240, 240, 240, ${midOpacity}) 30%, rgba(220, 220, 220, ${edgeOpacity}) 60%, rgba(200, 200, 200, 0) 100%)`;
     particleElement.style.background = gradient;
-    particleElement.style.filter = 'blur(15px)';
+    particleElement.style.filter = 'blur(10px)';
 
     // Create GSAP timeline for particle animation
     const timeline = gsap.timeline({
@@ -98,19 +99,16 @@ const Smoke: React.FC<SmokeProps> = ({
       }
     });
 
-    // Animation duration based on speed - longer duration for continuous flow
-    const duration = gsap.utils.random(6000 / speed, 12000 / speed);
+    // Animation duration based on speed
+    const duration = gsap.utils.random(5000 / speed, 9000 / speed);
 
-    // Animate upward movement with drift - smooth continuous flow
-    // Use bottom property to move from bottom upward
-    // endY is negative (e.g., -600), so we need to convert it to bottom value
-    // If endY = -600 and containerHeight = 500, then bottom should be 500 - (-600) = 1100px
+    // 从底部上升到半屏（endY 为从顶部算起的 y），用 bottom 表示：bottom = containerHeight - endY
     const finalBottom = containerHeight - endY;
     timeline.to(particleElement, {
       bottom: `${finalBottom}px`,
       left: `+=${drift}px`,
       duration: duration / 1000,
-      ease: 'none', // Linear movement for continuous flow
+      ease: 'none',
     });
 
     // Fade in at start - quick fade in
@@ -120,12 +118,12 @@ const Smoke: React.FC<SmokeProps> = ({
       0
     );
 
-    // Keep opacity high during most of the animation, only fade out at the very end
-    const fadeOutStart = Math.max(0.8, (duration / 1000) - 2); // Start fading out in last 2 seconds or 80% of duration
+    // 上半段（接近半屏）开始消散：行程约 60% 后开始淡出
+    const fadeOutStart = (duration / 1000) * 0.6;
     timeline.to(particleElement, {
       opacity: 0,
-      duration: 2,
-      ease: 'power1.in'
+      duration: (duration / 1000) * 0.4,
+      ease: 'power1.in',
     }, fadeOutStart);
 
     // Scale up as it rises - less dramatic for smaller particles
@@ -191,8 +189,7 @@ const Smoke: React.FC<SmokeProps> = ({
       for (let i = 0; i < emitterCount; i++) {
         const emitterX = spacing * (i + 1);
         
-        // Create particles at intervals - more frequent for continuous flow
-        const emitInterval = gsap.utils.random(200 / speed, 500 / speed);
+        const emitInterval = gsap.utils.random(400 / speed, 800 / speed);
         const intervalId = window.setInterval(() => {
           createParticle(emitterX, containerHeight);
         }, emitInterval);
@@ -244,7 +241,7 @@ const Smoke: React.FC<SmokeProps> = ({
         const spacing = containerWidth / (emitterCount + 1);
         for (let i = 0; i < emitterCount; i++) {
           const emitterX = spacing * (i + 1);
-          const emitInterval = gsap.utils.random(200 / speed, 500 / speed);
+          const emitInterval = gsap.utils.random(400 / speed, 800 / speed);
           const intervalId = window.setInterval(() => {
             createParticle(emitterX, containerHeight);
           }, emitInterval);
