@@ -12,7 +12,7 @@ const playlist = [
   {
     name: "Magic Together",
     author: "上海迪士尼度假区",
-    url: "/aurora-player/music/magic-together.mp3",
+    url: "/aurora-player/music/magic-together.MP3",
     poster: "/aurora-player/music/magic-together.png",
     lyrics: "/aurora-player/music/magic-together.lrc"
   },
