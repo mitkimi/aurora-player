@@ -10,38 +10,45 @@ interface AudioPlayerScreenProps {
 
 const playlist = [
   {
+    name: "Magic Together",
+    author: "上海迪士尼度假区",
+    url: "/aurora-player/music/magic-together.mp3",
+    poster: "/aurora-player/music/magic-together.png",
+    lyrics: "/aurora-player/music/magic-together.lrc"
+  },
+  {
     name: "B612",
     author: "走洲舟",
     url: "/aurora-player/music/走洲舟 - B612.mp3",
-    poster: "/aurora-player/music/走洲舟 - B612.jpg",
+    poster: "/aurora-player/music/b612.jpg",
     lyrics: "/aurora-player/music/走洲舟 - B612.lrc"
   },
   {
     name: "打上花火",
     author: "Daoko, 米津玄師",
     url: "/aurora-player/music/Daoko,米津玄師 - 打上花火.mp3",
-    poster: "/aurora-player/music/Daoko,米津玄師 - 打上花火.webp",
+    poster: "/aurora-player/music/dashanghuahuo.webp",
     lyrics: "/aurora-player/music/Daoko,米津玄師 - 打上花火.lrc"
   },
   {
     name: "Somebody That I Used To Know",
     author: "Just Lowkey",
     url: "/aurora-player/music/Just Lowkey - Somebody That I Used To Know.mp3",
-    poster: "/aurora-player/music/Just Lowkey - Somebody That I Used To Know.jpg",
+    poster: "/aurora-player/music/somebody.jpg",
     lyrics: "/aurora-player/music/Just Lowkey - Somebody That I Used To Know.lrc"
   },
   {
     name: "我们打着光脚在风车下跑，手上的狗尾巴草摇啊摇",
     author: "等一下就回家，艾兜",
     url: "/aurora-player/music/等一下就回家,-艾兜 - 我们打着光脚在风车下跑，手上的狗尾巴草摇啊摇.mp3",
-    poster: "/aurora-player/music/等一下就回家,-艾兜 - 我们打着光脚在风车下跑，手上的狗尾巴草摇啊摇.webp",
+    poster: "/aurora-player/music/womendazheguangjiao.webp",
     lyrics: "/aurora-player/music/等一下就回家,-艾兜 - 我们打着光脚在风车下跑，手上的狗尾巴草摇啊摇.lrc"
   },
   {
     name: "Happy",
     author: "Pharrell Williams",
     url: "/aurora-player/music/Pharrell Williams - Happy.mp3",
-    poster: "/aurora-player/music/Pharrell Williams - Happy.webp",
+    poster: "/aurora-player/music/happy.webp",
     lyrics: "/aurora-player/music/Pharrell Williams - Happy.lrc",
   },
 ]

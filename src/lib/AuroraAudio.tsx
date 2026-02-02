@@ -163,11 +163,16 @@ const PosterOverlay: React.FC<{ poster: string; containerRef: React.RefObject<HT
     return () => window.removeEventListener('resize', updateSize);
   }, [containerRef]);
 
-  // Opacity animation: 0 → 20% → 0 every 60 seconds - only runs when playing
+  // Opacity animation (breathing effect): 0 → 20% → 0 every 60 seconds - only runs when playing
+  // When paused, reset to 0 and stop animation
   useEffect(() => {
-    if (!posterRef.current || !isPlaying) return;
+    if (!isPlaying) {
+      setOpacity(0);
+      return;
+    }
+    if (!posterRef.current) return;
 
-    let currentTarget = 0.2; // Start by going to 20%
+    let currentTarget = 0.1; // Start by going to 10% (from 0)
     const duration = 60000; // 60 seconds per cycle
     const transitionDuration = 3000; // 3 seconds for smooth transition
     let timeoutId: NodeJS.Timeout | null = null;
@@ -180,7 +185,7 @@ const PosterOverlay: React.FC<{ poster: string; containerRef: React.RefObject<HT
         
         // After duration, switch direction and continue
         timeoutId = setTimeout(() => {
-          currentTarget = currentTarget === 0 ? 0.2 : 0; // Toggle between 0 and 0.2 (20%)
+          currentTarget = currentTarget === 0 ? 0.1 : 0; // Toggle between 0 and 0.1 (10%)
           animateOpacity();
         }, duration);
       }
