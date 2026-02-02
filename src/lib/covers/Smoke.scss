@@ -6,15 +6,32 @@
   left: 0;
   pointer-events: none;
   overflow: hidden;
-  border-radius: inherit; // Inherit border-radius from parent
-  clip-path: inset(0); // Ensure content is clipped to container bounds
-  opacity: 0.28; // Overall opacity for the entire smoke layer (25%)
-  
+  border-radius: inherit;
+  clip-path: inset(0);
+  opacity: 0.28;
+  /* 最多覆盖下半屏：仅底部 50% 可见；上半部分为消散渐变（25%–50% 渐隐） */
+  mask-image: linear-gradient(
+    to top,
+    transparent 0%,
+    rgba(0, 0, 0, 0.35) 25%,
+    black 50%,
+    black 100%
+  );
+  -webkit-mask-image: linear-gradient(
+    to top,
+    transparent 0%,
+    rgba(0, 0, 0, 0.35) 25%,
+    black 50%,
+    black 100%
+  );
+  contain: layout style paint;
+  will-change: auto;
+
   .smoke-particle {
     position: absolute;
     border-radius: 50%;
     pointer-events: none;
-    will-change: transform, opacity;
     transform-origin: center center;
+    contain: strict;
   }
 }
