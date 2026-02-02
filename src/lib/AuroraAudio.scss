@@ -398,21 +398,11 @@
       
       .aurora-audio__lyric-line-char {
         display: inline-block;
-        
-        @keyframes char-float-floating {
-          0%, 100% {
-            transform: translateY(0px);
-          }
-          50% {
-            transform: translateY(-8px);
-          }
-        }
       }
-      
-      // Animation only when playing - each character floats sequentially
-      .aurora-audio--playing & .aurora-audio__lyric-line-char {
-        animation: char-float-floating 3s ease-in-out infinite !important;
-        // animation-delay is set inline via style prop for sequential effect
+
+      // 加载即飘动，按字母顺序（animationDelay 由 inline 传入，含负值以立即开始）
+      & .aurora-audio__lyric-line-char {
+        animation: aurora-char-float 2.5s ease-in-out infinite;
       }
     }
   }
@@ -742,5 +732,71 @@
 @keyframes spin {
   to {
     transform: rotate(360deg);
+  }
+}
+
+@keyframes aurora-char-float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-12px);
+  }
+}
+
+/* 歌词 fade in / fade out */
+.aurora-audio__lyrics-floating-wrapper {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.aurora-audio__lyric-line--fade-out,
+.aurora-audio__lyric-line--fade-in {
+  position: absolute !important;
+  left: 50%;
+  transform: translateX(-50%);
+  top: 0;
+  bottom: 0;
+  width: 70%;
+  max-width: 70%;
+  display: flex !important;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.aurora-audio__lyric-line--fade-out {
+  z-index: 0;
+  animation: aurora-lyric-fade-out 0.4s ease-out forwards;
+}
+
+.aurora-audio__lyric-line--fade-in {
+  z-index: 1;
+  animation: aurora-lyric-fade-in 0.5s ease-out forwards;
+  animation-fill-mode: backwards;
+}
+
+@keyframes aurora-lyric-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes aurora-lyric-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
   }
 }

@@ -63,7 +63,8 @@ const splitIntoBalancedLines = (text: string, maxLines: number = 2): string[] =>
 };
 
 // 渲染歌词子行：每个词用 nowrap 包裹，避免单词被 CSS 换行拆开
-const renderLyricChars = (subLine: string, keyPrefix: string) => {
+// isFloating: 浮动模式时按字母顺序飘动，需传入以应用 animation
+const renderLyricChars = (subLine: string, keyPrefix: string, isFloating?: boolean) => {
   const words = subLine.split(/\s+/).filter(Boolean);
   if (words.length === 0) return null;
   let charIndex = 0;
@@ -71,12 +72,20 @@ const renderLyricChars = (subLine: string, keyPrefix: string) => {
     const spaceBefore = wordIndex > 0 ? 1 : 0;
     const startIdx = charIndex;
     charIndex += spaceBefore + word.length;
+    const getCharStyle = (idx: number) => {
+      const base: React.CSSProperties = {};
+      if (isFloating) {
+        // 负 delay：加载时动画已在进行中，避免从静止开始
+        base.animationDelay = `${idx * 0.08 - 1.25}s`;
+      }
+      return base;
+    };
     return (
       <React.Fragment key={`${keyPrefix}-w${wordIndex}`}>
         {wordIndex > 0 && (
           <span
             className="aurora-audio__lyric-line-char"
-            style={{ animationDelay: `${startIdx * 0.1}s` }}
+            style={getCharStyle(startIdx)}
           >
             {'\u00A0'}
           </span>
@@ -86,7 +95,7 @@ const renderLyricChars = (subLine: string, keyPrefix: string) => {
             <span
               key={ci}
               className="aurora-audio__lyric-line-char"
-              style={{ animationDelay: `${(startIdx + spaceBefore + ci) * 0.1}s` }}
+              style={getCharStyle(startIdx + spaceBefore + ci)}
             >
               {char}
             </span>
@@ -300,7 +309,7 @@ const AuroraAudio: React.FC<AuroraAudioProps> = ({
   // State for lyrics
   const [parsedLyrics, setParsedLyrics] = useState<Lyric[]>([]);
   const [currentLyricIndex, setCurrentLyricIndex] = useState<number>(-1);
-  const [previousLyricIndex, setPreviousLyricIndex] = useState<number>(-1); // eslint-disable-line @typescript-eslint/no-unused-vars
+  const [previousLyricIndex, setPreviousLyricIndex] = useState<number>(-1);
   
   const audioRef = useRef<HTMLAudioElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -1261,25 +1270,37 @@ const AuroraAudio: React.FC<AuroraAudioProps> = ({
         </div>
       )}
       
-      {/* Floating lyrics - single line, large text, centered */}
-      {mode === 'effects' && (effects.lyrics === 'floating' || effects.lyrics === 'Floating') && hasLyrics && currentLyricIndex >= 0 && (
+      {/* Floating lyrics - single line, large text, centered, with fade in/out */}
+      {mode === 'effects' && (effects.lyrics === 'floating' || effects.lyrics === 'Floating') && hasLyrics && (currentLyricIndex >= 0 || previousLyricIndex >= 0) && (
         <div 
           className="aurora-audio__lyrics aurora-audio__lyrics--floating"
           style={{ zIndex: 5, position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
         >
-          <div 
-            className="aurora-audio__lyric-line aurora-audio__lyric-line--floating"
-            data-aos="fade-up"
-            data-aos-duration="800"
-            data-aos-easing="ease-in-out"
-            data-aos-once="false"
-            key={currentLyricIndex}
-          >
-            {currentLyricIndex >= 0 && parsedLyrics && parsedLyrics[currentLyricIndex] && parsedLyrics[currentLyricIndex].text ? splitIntoBalancedLines(parsedLyrics[currentLyricIndex].text, 2).map((subLine, lineIndex) => (
-              <div key={`line-${currentLyricIndex}-${lineIndex}`} className="aurora-audio__lyric-subline">
-                {renderLyricChars(subLine, `floating-${currentLyricIndex}-${lineIndex}`)}
+          <div className="aurora-audio__lyrics-floating-wrapper">
+            {/* 上一句：fade out */}
+            {previousLyricIndex >= 0 && previousLyricIndex !== currentLyricIndex && parsedLyrics[previousLyricIndex]?.text && (
+              <div 
+                className="aurora-audio__lyric-line aurora-audio__lyric-line--floating aurora-audio__lyric-line--fade-out"
+              >
+                {splitIntoBalancedLines(parsedLyrics[previousLyricIndex].text, 2).map((subLine, lineIndex) => (
+                  <div key={`prev-${previousLyricIndex}-${lineIndex}`} className="aurora-audio__lyric-subline">
+                    {renderLyricChars(subLine, `floating-prev-${previousLyricIndex}-${lineIndex}`, false)}
+                  </div>
+                ))}
               </div>
-            )) : null}
+            )}
+            {/* 当前句：fade in */}
+            {currentLyricIndex >= 0 && parsedLyrics[currentLyricIndex]?.text && (
+              <div 
+                className="aurora-audio__lyric-line aurora-audio__lyric-line--floating aurora-audio__lyric-line--fade-in"
+              >
+                {splitIntoBalancedLines(parsedLyrics[currentLyricIndex].text, 2).map((subLine, lineIndex) => (
+                  <div key={`curr-${currentLyricIndex}-${lineIndex}`} className="aurora-audio__lyric-subline">
+                    {renderLyricChars(subLine, `floating-${currentLyricIndex}-${lineIndex}`, true)}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}
