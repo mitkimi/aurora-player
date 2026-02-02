@@ -23,85 +23,78 @@ import Prism from './backgrounds/Prism';
 // Import cover effects
 import Smoke from './covers/Smoke';
 
-// Utility function to split text into balanced lines
+// 歌词拆行：只在词边界换行，保证单词完整（不拆开单词）
 const splitIntoBalancedLines = (text: string, maxLines: number = 2): string[] => {
   if (!text || maxLines <= 1) return [text];
-  
-  const words = text.split(' ');
+
+  // 按空白切分为“词”，换行只发生在词与词之间
+  const words = text.trim().split(/\s+/).filter(Boolean);
   if (words.length <= 1) return [text];
-  
-  // If we only need 2 lines, use a simple split strategy
-  if (maxLines === 2) {
-    // Calculate approximate midpoint in characters (not words)
-    const totalLength = text.length;
-    const targetLength = Math.floor(totalLength / 2);
-    
-    let firstLine = '';
-    let secondLine = '';
-    
-    // Try to find the closest word boundary to the midpoint
-    let currentLength = 0;
-    let splitIndex = 0;
-    
-    for (let i = 0; i < words.length; i++) {
-      const wordWithSpace = i === words.length - 1 ? words[i] : words[i] + ' ';
-      if (currentLength + wordWithSpace.length >= targetLength && i > 0) {
-        splitIndex = i;
-        break;
-      }
-      currentLength += wordWithSpace.length;
-    }
-    
-    // If no suitable split point was found, split at the middle word
-    if (splitIndex === 0 && words.length > 1) {
-      splitIndex = Math.floor(words.length / 2);
-    }
-    
-    const firstWords = words.slice(0, splitIndex);
-    const secondWords = words.slice(splitIndex);
-    
-    firstLine = firstWords.join(' ').trim();
-    secondLine = secondWords.join(' ').trim();
-    
-    // Make sure neither line is empty
-    if (!firstLine) {
-      return [secondLine];
-    }
-    if (!secondLine) {
-      return [firstLine];
-    }
-    
-    return [firstLine, secondLine];
-  }
-  
-  // For more than 2 lines, use a more complex algorithm
+
+  const totalLen = text.length;
+  const targetCharsPerLine = Math.ceil(totalLen / maxLines);
+
   const lines: string[] = [];
-  const targetCharsPerLine = Math.ceil(text.length / maxLines);
-  
   let currentLine = '';
-  
-  for (const word of words) {
-    const testLine = currentLine ? `${currentLine} ${word}` : word;
-    
-    if (testLine.length <= targetCharsPerLine || currentLine === '') {
-      currentLine = testLine;
+
+  for (let i = 0; i < words.length; i++) {
+    const word = words[i];
+    const withSpace = currentLine ? ' ' : '';
+    const candidate = currentLine + withSpace + word;
+
+    if (candidate.length <= targetCharsPerLine || !currentLine) {
+      currentLine = candidate;
     } else {
-      lines.push(currentLine);
+      if (currentLine) lines.push(currentLine);
       currentLine = word;
-      
+
       if (lines.length === maxLines - 1) {
-        // For the last line, add all remaining words
-        lines.push([...currentLine.split(' '), ...words.slice(words.indexOf(word) + 1)].join(' '));
-        break;
+        // 最后一行：剩余所有词接在一起，不再拆
+        const rest = words.slice(i + 1);
+        const lastLine = rest.length ? currentLine + ' ' + rest.join(' ') : currentLine;
+        if (lastLine) lines.push(lastLine);
+        return lines;
       }
     }
   }
-  
-  if (currentLine) {
-    lines.push(currentLine);
-  }
-  
+
+  if (currentLine) lines.push(currentLine);
   return lines;
+};
+
+// 渲染歌词子行：每个词用 nowrap 包裹，避免单词被 CSS 换行拆开
+const renderLyricChars = (subLine: string, keyPrefix: string) => {
+  const words = subLine.split(/\s+/).filter(Boolean);
+  if (words.length === 0) return null;
+  let charIndex = 0;
+  return words.map((word, wordIndex) => {
+    const spaceBefore = wordIndex > 0 ? 1 : 0;
+    const startIdx = charIndex;
+    charIndex += spaceBefore + word.length;
+    return (
+      <React.Fragment key={`${keyPrefix}-w${wordIndex}`}>
+        {wordIndex > 0 && (
+          <span
+            className="aurora-audio__lyric-line-char"
+            style={{ animationDelay: `${startIdx * 0.1}s` }}
+          >
+            {'\u00A0'}
+          </span>
+        )}
+        <span style={{ whiteSpace: 'nowrap' }} className="aurora-audio__lyric-line-word">
+          {word.split('').map((char, ci) => (
+            <span
+              key={ci}
+              className="aurora-audio__lyric-line-char"
+              style={{ animationDelay: `${(startIdx + spaceBefore + ci) * 0.1}s` }}
+            >
+              {char}
+            </span>
+          ))}
+        </span>
+      </React.Fragment>
+    );
+  });
 };
 
 interface Track {
@@ -1258,17 +1251,7 @@ const AuroraAudio: React.FC<AuroraAudioProps> = ({
                 >
                   {line && line.text ? splitIntoBalancedLines(line.text, 2).map((subLine, lineIndex) => (
                     <div key={`line-${index}-${lineIndex}`} className="aurora-audio__lyric-subline">
-                      {subLine.split('').map((char, charIndex) => (
-                        <span 
-                          key={`char-${index}-${lineIndex}-${charIndex}`}
-                          className="aurora-audio__lyric-line-char"
-                          style={{ 
-                            animationDelay: `${charIndex * 0.1}s` // Sequential delay for wave effect (increased for more visible effect)
-                          }}
-                        >
-                          {char === ' ' ? '\u00A0' : char}
-                        </span>
-                      ))}
+                      {renderLyricChars(subLine, `effects-${index}-${lineIndex}`)}
                     </div>
                   )) : null}
                 </div>
@@ -1294,17 +1277,7 @@ const AuroraAudio: React.FC<AuroraAudioProps> = ({
           >
             {currentLyricIndex >= 0 && parsedLyrics && parsedLyrics[currentLyricIndex] && parsedLyrics[currentLyricIndex].text ? splitIntoBalancedLines(parsedLyrics[currentLyricIndex].text, 2).map((subLine, lineIndex) => (
               <div key={`line-${currentLyricIndex}-${lineIndex}`} className="aurora-audio__lyric-subline">
-                {subLine.split('').map((char, charIndex) => (
-                  <span 
-                    key={`char-${currentLyricIndex}-${lineIndex}-${charIndex}`}
-                    className="aurora-audio__lyric-line-char"
-                    style={{ 
-                      animationDelay: `${charIndex * 0.1}s` // Sequential delay for wave effect (increased for more visible effect)
-                    }}
-                  >
-                    {char === ' ' ? '\u00A0' : char}
-                  </span>
-                ))}
+                {renderLyricChars(subLine, `floating-${currentLyricIndex}-${lineIndex}`)}
               </div>
             )) : null}
           </div>
@@ -1366,17 +1339,7 @@ const AuroraAudio: React.FC<AuroraAudioProps> = ({
                       >
                         {line && line.text ? splitIntoBalancedLines(line.text, 2).map((subLine, lineIndex) => (
                           <div key={`line-${index}-${lineIndex}`} className="aurora-audio__lyric-subline">
-                            {subLine.split('').map((char, charIndex) => (
-                              <span 
-                                key={`char-${index}-${lineIndex}-${charIndex}`}
-                                className="aurora-audio__lyric-line-char"
-                                style={{ 
-                                  animationDelay: `${charIndex * 0.1}s` // Sequential delay for wave effect (increased for more visible effect)
-                                }}
-                              >
-                                {char === ' ' ? '\u00A0' : char}
-                              </span>
-                            ))}
+                            {renderLyricChars(subLine, `normal-${index}-${lineIndex}`)}
                           </div>
                         )) : null}
                       </div>

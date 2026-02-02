@@ -345,6 +345,11 @@
     &-char {
       display: inline-block;
     }
+
+    // 单词容器：nowrap 防止单词被拆开换行
+    &-word {
+      white-space: nowrap;
+    }
     
     &--active {
       font-size: 24px;
