@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import './AuroraAudio.scss';
 
 // Import icons
@@ -60,6 +60,55 @@ const splitIntoBalancedLines = (text: string, maxLines: number = 2): string[] =>
 
   if (currentLine) lines.push(currentLine);
   return lines;
+};
+
+// 浮动模式歌词行：用 transition 实现可靠的 fade in
+const FadeInLyricLine: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className }) => {
+  const [visible, setVisible] = useState(false);
+  useLayoutEffect(() => {
+    setVisible(false);
+    const id = requestAnimationFrame(() => {
+      requestAnimationFrame(() => setVisible(true));
+    });
+    return () => cancelAnimationFrame(id);
+  }, []);
+  return (
+    <div
+      className={className}
+      style={{
+        opacity: visible ? 1 : 0,
+        transition: 'opacity 0.6s ease-out',
+      }}
+    >
+      {children}
+    </div>
+  );
+};
+
+// 浮动模式歌词行：fade out
+const FadeOutLyricLine: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className }) => {
+  const ref = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    if (!ref.current) return;
+    ref.current.style.opacity = '1';
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (ref.current) ref.current.style.opacity = '0';
+      });
+    });
+  }, []);
+  return (
+    <div
+      ref={ref}
+      className={className}
+      style={{
+        opacity: 1,
+        transition: 'opacity 0.5s ease-out',
+      }}
+    >
+      {children}
+    </div>
+  );
 };
 
 // 渲染歌词子行：每个词用 nowrap 包裹，避免单词被 CSS 换行拆开
@@ -1279,27 +1328,23 @@ const AuroraAudio: React.FC<AuroraAudioProps> = ({
           <div className="aurora-audio__lyrics-floating-wrapper">
             {/* 上一句：fade out */}
             {previousLyricIndex >= 0 && previousLyricIndex !== currentLyricIndex && parsedLyrics[previousLyricIndex]?.text && (
-              <div 
-                className="aurora-audio__lyric-line aurora-audio__lyric-line--floating aurora-audio__lyric-line--fade-out"
-              >
+              <FadeOutLyricLine className="aurora-audio__lyric-line aurora-audio__lyric-line--floating aurora-audio__lyric-line--fade-out">
                 {splitIntoBalancedLines(parsedLyrics[previousLyricIndex].text, 2).map((subLine, lineIndex) => (
                   <div key={`prev-${previousLyricIndex}-${lineIndex}`} className="aurora-audio__lyric-subline">
                     {renderLyricChars(subLine, `floating-prev-${previousLyricIndex}-${lineIndex}`, false)}
                   </div>
                 ))}
-              </div>
+              </FadeOutLyricLine>
             )}
             {/* 当前句：fade in */}
             {currentLyricIndex >= 0 && parsedLyrics[currentLyricIndex]?.text && (
-              <div 
-                className="aurora-audio__lyric-line aurora-audio__lyric-line--floating aurora-audio__lyric-line--fade-in"
-              >
+              <FadeInLyricLine key={currentLyricIndex} className="aurora-audio__lyric-line aurora-audio__lyric-line--floating aurora-audio__lyric-line--fade-in">
                 {splitIntoBalancedLines(parsedLyrics[currentLyricIndex].text, 2).map((subLine, lineIndex) => (
                   <div key={`curr-${currentLyricIndex}-${lineIndex}`} className="aurora-audio__lyric-subline">
                     {renderLyricChars(subLine, `floating-${currentLyricIndex}-${lineIndex}`, true)}
                   </div>
                 ))}
-              </div>
+              </FadeInLyricLine>
             )}
           </div>
         </div>
